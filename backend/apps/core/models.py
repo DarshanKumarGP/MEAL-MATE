@@ -42,3 +42,34 @@ class Address(TimeStampedModel):
         db_table = 'addresses'
     def __str__(self):
         return f"{self.label} - {self.user.email}"
+    
+class Address(TimeStampedModel):
+    ADDRESS_TYPE_CHOICES = [
+        ('HOME', 'Home'),
+        ('WORK', 'Work'), 
+        ('OTHER', 'Other'),
+    ]
+    
+    user = models.ForeignKey(User, on_delete=models.CASCADE, related_name='addresses')
+    address_line_1 = models.CharField(max_length=255)
+    address_line_2 = models.CharField(max_length=255, blank=True)
+    city = models.CharField(max_length=100)
+    state = models.CharField(max_length=100)
+    postal_code = models.CharField(max_length=10)
+    landmark = models.CharField(max_length=255, blank=True)
+    address_type = models.CharField(max_length=10, choices=ADDRESS_TYPE_CHOICES, default='HOME')
+    is_default = models.BooleanField(default=False)
+    
+    class Meta:
+        db_table = 'addresses'
+        ordering = ['-is_default', '-created_at']
+    
+    def save(self, *args, **kwargs):
+        if self.is_default:
+            # Set all other addresses for this user to non-default
+            Address.objects.filter(user=self.user, is_default=True).update(is_default=False)
+        super().save(*args, **kwargs)
+    
+    def __str__(self):
+        return f"{self.address_type} - {self.city}, {self.state}"
+

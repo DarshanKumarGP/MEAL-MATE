@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useState, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
 import api from '../services/api';
 import { theme } from '../styles/theme';
@@ -6,6 +6,7 @@ import Card from '../components/ui/Card';
 import Button from '../components/ui/Button';
 import Skeleton from '../components/ui/Skeleton';
 import { useToast } from '../context/ToastContext';
+import AdvancedSearch from '../components/search/AdvancedSearch';
 
 interface Restaurant {
   id: number;
@@ -34,22 +35,24 @@ const RestaurantList: React.FC = () => {
   const { addToast } = useToast();
   const [restaurants, setRestaurants] = useState<Restaurant[]>([]);
   const [loading, setLoading] = useState(true);
-  const [searchTerm, setSearchTerm] = useState('');
-  const [selectedCuisine, setSelectedCuisine] = useState('');
+  const [appliedFilters, setAppliedFilters] = useState<any>({});
+  const [pendingFilters, setPendingFilters] = useState<any>({});
+  const [hasActiveFilters, setHasActiveFilters] = useState(false);
 
-  const cuisineTypes = ['All', 'Indian', 'Chinese', 'Italian', 'Mexican', 'Thai', 'American', 'Continental', 'Fast Food'];
-
-  useEffect(() => {
-    fetchRestaurants();
-  }, [searchTerm, selectedCuisine]);
-
-  const fetchRestaurants = async () => {
+  const fetchRestaurants = useCallback(async (filters: any) => {
     try {
+      setLoading(true);
       let url = '/restaurants/restaurants/';
       const params = new URLSearchParams();
 
-      if (searchTerm) params.append('search', searchTerm);
-      if (selectedCuisine && selectedCuisine !== 'All') params.append('cuisine_type', selectedCuisine);
+      // Apply filters
+      if (filters && Object.keys(filters).length > 0) {
+        Object.entries(filters).forEach(([key, val]) => {
+          if (val !== '' && val !== undefined && val !== null) {
+            params.append(key, String(val));
+          }
+        });
+      }
 
       if (params.toString()) url += `?${params.toString()}`;
 
@@ -61,22 +64,30 @@ const RestaurantList: React.FC = () => {
     } finally {
       setLoading(false);
     }
+  }, [addToast]);
+
+  // Initial fetch
+  useEffect(() => {
+    fetchRestaurants({});
+  }, [fetchRestaurants]);
+
+  const handleFiltersChange = (filters: any) => {
+    // Just store the filters without fetching
+    setPendingFilters(filters);
   };
 
-  const getImageUrl = (imagePath?: string) => {
-    if (!imagePath) return null;
-    return imagePath.startsWith('http') ? imagePath : `http://127.0.0.1:8000/media/${imagePath}`;
+  const handleApplyFilters = () => {
+    // Apply the filters and fetch
+    setAppliedFilters(pendingFilters);
+    setHasActiveFilters(Object.keys(pendingFilters).some(key => pendingFilters[key] !== '' && pendingFilters[key] !== undefined && pendingFilters[key] !== null));
+    fetchRestaurants(pendingFilters);
   };
 
-  const isRestaurantOpen = (openTime?: string, closeTime?: string) => {
-    if (!openTime || !closeTime) return true;
-    const now = new Date();
-    const currentTime = now.getHours() * 60 + now.getMinutes();
-    const [openHour, openMin] = openTime.split(':').map(Number);
-    const [closeHour, closeMin] = closeTime.split(':').map(Number);
-    const openMinutes = openHour * 60 + openMin;
-    const closeMinutes = closeHour * 60 + closeMin;
-    return currentTime >= openMinutes && currentTime <= closeMinutes;
+  const handleClearFilters = () => {
+    setPendingFilters({});
+    setAppliedFilters({});
+    setHasActiveFilters(false);
+    fetchRestaurants({});
   };
 
   if (loading) {
@@ -106,9 +117,8 @@ const RestaurantList: React.FC = () => {
           </div>
 
           {/* Skeleton Filters */}
-          <div style={{ display: 'flex', gap: theme.spacing.md, marginBottom: theme.spacing.xl }}>
-            <Skeleton width="300px" height="45px" />
-            <Skeleton width="150px" height="45px" />
+          <div style={{ marginBottom: theme.spacing.xl }}>
+            <Skeleton width="100%" height="180px" />
           </div>
 
           {/* Skeleton Cards */}
@@ -166,6 +176,7 @@ const RestaurantList: React.FC = () => {
             padding: theme.spacing.xl,
             borderRadius: theme.borderRadius.xl,
             color: 'white',
+            boxShadow: '0 10px 30px rgba(255, 107, 53, 0.3)',
           }}
         >
           <h1
@@ -173,6 +184,7 @@ const RestaurantList: React.FC = () => {
               fontSize: theme.typography.fontSize['4xl'],
               fontWeight: theme.typography.fontWeight.bold,
               margin: `0 0 ${theme.spacing.md} 0`,
+              textShadow: '0 2px 10px rgba(0,0,0,0.1)',
             }}
           >
             🍽️ Discover Great Food
@@ -181,76 +193,91 @@ const RestaurantList: React.FC = () => {
             style={{
               fontSize: theme.typography.fontSize.lg,
               margin: 0,
-              opacity: 0.9,
+              opacity: 0.95,
+              fontWeight: theme.typography.fontWeight.medium,
             }}
           >
             Order from your favorite restaurants and get it delivered fresh
           </p>
         </div>
 
-        {/* Search & Filter Bar */}
-        <div
-          style={{
-            display: 'grid',
-            gridTemplateColumns: '1fr auto',
-            gap: theme.spacing.md,
-            marginBottom: theme.spacing.xl,
-            padding: theme.spacing.lg,
-            backgroundColor: 'white',
-            borderRadius: theme.borderRadius.lg,
-            boxShadow: theme.shadows.sm,
-          }}
-        >
-          <div style={{ position: 'relative' }}>
-            <input
-              type="text"
-              placeholder="Search restaurants, cuisines, or dishes..."
-              value={searchTerm}
-              onChange={(e) => setSearchTerm(e.target.value)}
-              style={{
-                width: '100%',
-                padding: `${theme.spacing.md} ${theme.spacing.md} ${theme.spacing.md} 50px`,
-                border: `2px solid ${theme.colors.gray[200]}`,
-                borderRadius: theme.borderRadius.md,
-                fontSize: theme.typography.fontSize.base,
-                outline: 'none',
-                transition: 'border-color 0.2s',
-              }}
-              onFocus={(e) => (e.target.style.borderColor = theme.colors.primary.main)}
-              onBlur={(e) => (e.target.style.borderColor = theme.colors.gray[200])}
-            />
-            <span
-              style={{
-                position: 'absolute',
-                left: '16px',
-                top: '50%',
-                transform: 'translateY(-50%)',
-                fontSize: '18px',
-              }}
-            >
-              🔍
-            </span>
-          </div>
-
-          <select
-            value={selectedCuisine}
-            onChange={(e) => setSelectedCuisine(e.target.value)}
+        {/* Advanced Search Component with Apply Button */}
+        <Card style={{ marginBottom: theme.spacing.xl, padding: theme.spacing.lg }}>
+          <AdvancedSearch onFiltersChange={handleFiltersChange} />
+          
+          {/* Action Buttons */}
+          <div
             style={{
-              padding: theme.spacing.md,
-              border: `2px solid ${theme.colors.gray[200]}`,
-              borderRadius: theme.borderRadius.md,
-              fontSize: theme.typography.fontSize.base,
-              minWidth: '150px',
-              outline: 'none',
+              display: 'flex',
+              gap: theme.spacing.md,
+              marginTop: theme.spacing.lg,
+              justifyContent: 'flex-end',
+              flexWrap: 'wrap',
             }}
           >
-            {cuisineTypes.map((cuisine) => (
-              <option key={cuisine} value={cuisine === 'All' ? '' : cuisine}>
-                {cuisine}
-              </option>
-            ))}
-          </select>
-        </div>
+            <Button
+              variant="outline"
+              onClick={handleClearFilters}
+              style={{
+                minWidth: '140px',
+                border: `2px solid ${theme.colors.gray[300]}`,
+                color: theme.colors.gray[700],
+                backgroundColor: 'white',
+              }}
+            >
+              🔄 Clear Filters
+            </Button>
+            <Button
+              onClick={handleApplyFilters}
+              style={{
+                minWidth: '140px',
+                background: 'linear-gradient(135deg, #FF6B35 0%, #FF8F65 100%)',
+                border: 'none',
+                fontWeight: theme.typography.fontWeight.bold,
+                boxShadow: '0 4px 12px rgba(255, 107, 53, 0.3)',
+              }}
+            >
+              🔍 Apply Filters
+            </Button>
+          </div>
+        </Card>
+
+        {/* Results Summary */}
+        {hasActiveFilters && (
+          <div
+            style={{
+              marginBottom: theme.spacing.lg,
+              padding: theme.spacing.md,
+              backgroundColor: theme.colors.primary[50],
+              borderRadius: theme.borderRadius.md,
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'space-between',
+              border: `1px solid ${theme.colors.primary[100]}`,
+              flexWrap: 'wrap',
+              gap: theme.spacing.sm,
+            }}
+          >
+            <span style={{ color: theme.colors.primary.main, fontWeight: theme.typography.fontWeight.medium }}>
+              🔍 Showing {restaurants.length} result{restaurants.length !== 1 ? 's' : ''} based on your filters
+            </span>
+            <button
+              onClick={handleClearFilters}
+              style={{
+                background: 'none',
+                border: 'none',
+                color: theme.colors.primary.main,
+                cursor: 'pointer',
+                textDecoration: 'underline',
+                fontSize: theme.typography.fontSize.sm,
+                fontWeight: theme.typography.fontWeight.semibold,
+                padding: '4px 8px',
+              }}
+            >
+              ✕ Clear all
+            </button>
+          </div>
+        )}
 
         {/* Featured Restaurants */}
         {featuredRestaurants.length > 0 && (
@@ -267,6 +294,15 @@ const RestaurantList: React.FC = () => {
               }}
             >
               ⭐ Featured Restaurants
+              <span
+                style={{
+                  fontSize: theme.typography.fontSize.sm,
+                  fontWeight: theme.typography.fontWeight.normal,
+                  color: theme.colors.gray[500],
+                }}
+              >
+                ({featuredRestaurants.length})
+              </span>
             </h2>
             <div
               style={{
@@ -292,22 +328,39 @@ const RestaurantList: React.FC = () => {
               margin: `0 0 ${theme.spacing.lg} 0`,
             }}
           >
-            All Restaurants ({regularRestaurants.length})
+            {featuredRestaurants.length > 0 ? 'More Restaurants' : 'All Restaurants'} ({regularRestaurants.length})
           </h2>
 
-          {regularRestaurants.length === 0 ? (
+          {regularRestaurants.length === 0 && featuredRestaurants.length === 0 ? (
             <Card style={{ textAlign: 'center', padding: theme.spacing.xxl }}>
-              <div style={{ fontSize: '48px', marginBottom: theme.spacing.lg }}>🏪</div>
+              <div style={{ fontSize: '64px', marginBottom: theme.spacing.lg }}>🏪</div>
               <h3
                 style={{
                   fontSize: theme.typography.fontSize.xl,
                   color: theme.colors.gray[700],
                   margin: `0 0 ${theme.spacing.md} 0`,
+                  fontWeight: theme.typography.fontWeight.semibold,
                 }}
               >
                 No restaurants found
               </h3>
-              <p style={{ color: theme.colors.gray[500], margin: 0 }}>Try adjusting your search or filter criteria</p>
+              <p style={{ color: theme.colors.gray[500], margin: `0 0 ${theme.spacing.lg} 0` }}>
+                Try adjusting your search or filter criteria
+              </p>
+              {hasActiveFilters && (
+                <Button
+                  onClick={handleClearFilters}
+                  style={{ margin: '0 auto' }}
+                >
+                  Clear All Filters
+                </Button>
+              )}
+            </Card>
+          ) : regularRestaurants.length === 0 ? (
+            <Card style={{ textAlign: 'center', padding: theme.spacing.xl }}>
+              <p style={{ color: theme.colors.gray[600], margin: 0 }}>
+                No additional restaurants available
+              </p>
             </Card>
           ) : (
             <div
@@ -328,7 +381,7 @@ const RestaurantList: React.FC = () => {
   );
 };
 
-// Extracted Restaurant Card Component
+// Restaurant Card Component
 const RestaurantCard: React.FC<{
   restaurant: Restaurant;
   navigate: (path: string) => void;
@@ -346,6 +399,10 @@ const RestaurantCard: React.FC<{
         overflow: 'hidden',
         border: featured ? `2px solid ${theme.colors.primary.main}` : undefined,
         position: 'relative',
+        transition: 'all 0.3s ease',
+        height: '100%',
+        display: 'flex',
+        flexDirection: 'column',
       }}
       onClick={() => navigate(`/restaurants/${restaurant.id}`)}
     >
@@ -357,21 +414,24 @@ const RestaurantCard: React.FC<{
             right: 0,
             backgroundColor: theme.colors.primary.main,
             color: 'white',
-            padding: `4px 12px`,
+            padding: `6px 14px`,
             fontSize: theme.typography.fontSize.xs,
             fontWeight: theme.typography.fontWeight.bold,
             borderBottomLeftRadius: theme.borderRadius.md,
-            zIndex: 1,
+            zIndex: 2,
+            boxShadow: '0 2px 8px rgba(0,0,0,0.15)',
+            textTransform: 'uppercase',
+            letterSpacing: '0.5px',
           }}
         >
-          FEATURED
+          ⭐ Featured
         </div>
       )}
 
       {/* Cover Image */}
       <div
         style={{
-          height: '160px',
+          height: '180px',
           backgroundColor: theme.colors.gray[200],
           backgroundImage: coverImage ? `url(${coverImage})` : 'none',
           backgroundSize: 'cover',
@@ -380,9 +440,12 @@ const RestaurantCard: React.FC<{
           alignItems: 'center',
           justifyContent: 'center',
           position: 'relative',
+          flexShrink: 0,
         }}
       >
-        {!coverImage && <span style={{ fontSize: '48px' }}>🍽️</span>}
+        {!coverImage && (
+          <span style={{ fontSize: '56px', opacity: 0.5 }}>🍽️</span>
+        )}
 
         {/* Status Overlay */}
         {!isOpen && (
@@ -393,16 +456,17 @@ const RestaurantCard: React.FC<{
               left: 0,
               right: 0,
               bottom: 0,
-              backgroundColor: 'rgba(0,0,0,0.7)',
+              backgroundColor: 'rgba(0,0,0,0.75)',
               display: 'flex',
               alignItems: 'center',
               justifyContent: 'center',
               color: 'white',
-              fontSize: theme.typography.fontSize.lg,
-              fontWeight: theme.typography.fontWeight.semibold,
+              fontSize: theme.typography.fontSize.xl,
+              fontWeight: theme.typography.fontWeight.bold,
+              backdropFilter: 'blur(2px)',
             }}
           >
-            CLOSED
+            🔒 CLOSED
           </div>
         )}
 
@@ -411,38 +475,40 @@ const RestaurantCard: React.FC<{
           <div
             style={{
               position: 'absolute',
-              bottom: theme.spacing.sm,
-              left: theme.spacing.sm,
-              width: '40px',
-              height: '40px',
+              bottom: theme.spacing.md,
+              left: theme.spacing.md,
+              width: '50px',
+              height: '50px',
               borderRadius: '50%',
               backgroundImage: `url(${logoImage})`,
               backgroundSize: 'cover',
               backgroundPosition: 'center',
-              border: '2px solid white',
-              boxShadow: theme.shadows.sm,
+              border: '3px solid white',
+              boxShadow: '0 4px 12px rgba(0,0,0,0.2)',
             }}
           />
         )}
       </div>
 
       {/* Restaurant Info */}
-      <div style={{ padding: theme.spacing.md }}>
+      <div style={{ padding: theme.spacing.md, flex: 1, display: 'flex', flexDirection: 'column' }}>
         <div
           style={{
             display: 'flex',
             justifyContent: 'space-between',
             alignItems: 'flex-start',
             marginBottom: theme.spacing.sm,
+            gap: theme.spacing.sm,
           }}
         >
           <h3
             style={{
               fontSize: theme.typography.fontSize.lg,
-              fontWeight: theme.typography.fontWeight.semibold,
+              fontWeight: theme.typography.fontWeight.bold,
               color: theme.colors.gray[900],
               margin: 0,
               flex: 1,
+              lineHeight: 1.3,
             }}
           >
             {restaurant.name}
@@ -456,15 +522,20 @@ const RestaurantCard: React.FC<{
                 gap: '4px',
                 backgroundColor: theme.colors.success,
                 color: 'white',
-                padding: `2px 6px`,
+                padding: `4px 8px`,
                 borderRadius: theme.borderRadius.sm,
                 fontSize: theme.typography.fontSize.xs,
-                fontWeight: theme.typography.fontWeight.medium,
-                marginLeft: theme.spacing.sm,
+                fontWeight: theme.typography.fontWeight.bold,
+                flexShrink: 0,
+                boxShadow: '0 2px 4px rgba(0,0,0,0.1)',
               }}
             >
-              ⭐ {restaurant.average_rating}
-              {restaurant.total_reviews && <span style={{ opacity: 0.8 }}>({restaurant.total_reviews})</span>}
+              ⭐ {typeof restaurant.average_rating === 'number' 
+                ? restaurant.average_rating.toFixed(1) 
+                : parseFloat(restaurant.average_rating).toFixed(1)}
+              {restaurant.total_reviews && restaurant.total_reviews > 0 && (
+                <span style={{ opacity: 0.9, fontSize: '10px' }}>({restaurant.total_reviews})</span>
+              )}
             </div>
           )}
         </div>
@@ -473,12 +544,13 @@ const RestaurantCard: React.FC<{
           style={{
             fontSize: theme.typography.fontSize.sm,
             color: theme.colors.gray[600],
-            margin: `0 0 ${theme.spacing.sm} 0`,
+            margin: `0 0 ${theme.spacing.md} 0`,
             display: '-webkit-box',
             WebkitLineClamp: 2,
             WebkitBoxOrient: 'vertical',
             overflow: 'hidden',
-            lineHeight: 1.4,
+            lineHeight: 1.5,
+            flex: 1,
           }}
         >
           {restaurant.description}
@@ -495,28 +567,31 @@ const RestaurantCard: React.FC<{
         >
           <span
             style={{
-              backgroundColor: theme.colors.primary[50],
-              color: theme.colors.primary.main,
-              padding: `4px 8px`,
-              borderRadius: theme.borderRadius.sm,
+              backgroundColor: theme.colors.primary[100],
+              color: theme.colors.primary.dark,
+              padding: `5px 10px`,
+              borderRadius: theme.borderRadius.md,
               fontSize: theme.typography.fontSize.xs,
-              fontWeight: theme.typography.fontWeight.medium,
+              fontWeight: theme.typography.fontWeight.semibold,
             }}
           >
-            {restaurant.cuisine_type}
+            🍴 {restaurant.cuisine_type}
           </span>
 
-          <span
-            style={{
-              fontSize: theme.typography.fontSize.xs,
-              color: theme.colors.gray[500],
-              display: 'flex',
-              alignItems: 'center',
-              gap: '2px',
-            }}
-          >
-            📍 {restaurant.city || 'Unknown'}
-          </span>
+          {restaurant.city && (
+            <span
+              style={{
+                fontSize: theme.typography.fontSize.xs,
+                color: theme.colors.gray[600],
+                display: 'flex',
+                alignItems: 'center',
+                gap: '4px',
+                fontWeight: theme.typography.fontWeight.medium,
+              }}
+            >
+              📍 {restaurant.city}
+            </span>
+          )}
         </div>
 
         <div
@@ -524,12 +599,18 @@ const RestaurantCard: React.FC<{
             display: 'flex',
             justifyContent: 'space-between',
             alignItems: 'center',
+            paddingTop: theme.spacing.sm,
+            borderTop: `1px solid ${theme.colors.gray[200]}`,
           }}
         >
-          <div style={{ fontSize: theme.typography.fontSize.sm, color: theme.colors.gray[600] }}>
-            <div>🚚 ₹{restaurant.delivery_fee || 30} delivery</div>
+          <div style={{ fontSize: theme.typography.fontSize.sm, color: theme.colors.gray[700] }}>
+            <div style={{ fontWeight: theme.typography.fontWeight.medium, marginBottom: '2px' }}>
+              🚚 ₹{restaurant.delivery_fee || 30} delivery
+            </div>
             {restaurant.minimum_order && (
-              <div style={{ fontSize: theme.typography.fontSize.xs }}>Min: ₹{restaurant.minimum_order}</div>
+              <div style={{ fontSize: theme.typography.fontSize.xs, color: theme.colors.gray[500] }}>
+                Min order: ₹{restaurant.minimum_order}
+              </div>
             )}
           </div>
 
@@ -541,10 +622,13 @@ const RestaurantCard: React.FC<{
               navigate(`/restaurants/${restaurant.id}`);
             }}
             style={{
-              opacity: isOpen ? 1 : 0.6,
+              opacity: isOpen ? 1 : 0.5,
+              cursor: isOpen ? 'pointer' : 'not-allowed',
+              fontWeight: theme.typography.fontWeight.bold,
+              padding: '8px 16px',
             }}
           >
-            {isOpen ? 'Order Now' : 'Closed'}
+            {isOpen ? '🛒 Order Now' : '🔒 Closed'}
           </Button>
         </div>
       </div>
@@ -552,7 +636,7 @@ const RestaurantCard: React.FC<{
   );
 };
 
-// Helper functions (moved outside)
+// Helper functions
 const getImageUrl = (imagePath?: string) => {
   if (!imagePath) return null;
   return imagePath.startsWith('http') ? imagePath : `http://127.0.0.1:8000/media/${imagePath}`;

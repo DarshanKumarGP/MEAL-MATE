@@ -5,7 +5,10 @@ import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-d
 import { ThemeProvider, createTheme } from '@mui/material/styles';
 import CssBaseline from '@mui/material/CssBaseline';
 import { AuthProvider, useAuth } from './context/AuthContext';
+import { ToastProvider } from './context/ToastContext';
+import { NotificationProvider } from './context/NotificationContext';
 import Header from './components/layout/Header';
+import Toaster from './components/ui/Toaster';
 import Home from './pages/Home';
 import Login from './pages/Login';
 import Register from './pages/Register';
@@ -17,8 +20,8 @@ import AddressBook from './pages/AddressBook';
 import Orders from './pages/Orders';
 import OrderDetail from './pages/OrderDetail';
 import Dashboard from './pages/Dashboard';
-import { ToastProvider } from './context/ToastContext';
-import Toaster from './components/ui/Toaster';
+import RestaurantDashboard from './pages/RestaurantDashboard';
+import UserProfile from './pages/UserProfile';
 
 const muiTheme = createTheme({
   palette: {
@@ -103,6 +106,24 @@ function AppRoutes() {
           }
         />
 
+        <Route
+          path="/restaurant-dashboard"
+          element={
+            <ProtectedRoute>
+              <RestaurantDashboard />
+            </ProtectedRoute>
+          }
+        />
+
+        <Route
+          path="/profile"
+          element={
+            <ProtectedRoute>
+              <UserProfile />
+            </ProtectedRoute>
+          }
+        />
+
         <Route path="*" element={<Navigate to={user ? "/restaurants" : "/"} />} />
       </Routes>
     </Router>
@@ -114,7 +135,6 @@ function App() {
     <ThemeProvider theme={muiTheme}>
       <CssBaseline />
       <ToastProvider>
-        <Toaster />
         <div style={{ fontFamily: "'Inter', -apple-system, BlinkMacSystemFont, sans-serif" }}>
           <style>
             {`
@@ -130,10 +150,17 @@ function App() {
                 font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
                 background-color: #F9FAFB;
               }
+              @media (max-width: 768px) {
+                body { font-size: 14px; }
+                .container { padding: 8px !important; }
+              }
             `}
           </style>
           <AuthProvider>
-            <AppRoutes />
+            <NotificationProvider>
+              <Toaster />
+              <AppRoutes />
+            </NotificationProvider>
           </AuthProvider>
         </div>
       </ToastProvider>

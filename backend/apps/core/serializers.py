@@ -1,5 +1,6 @@
 from rest_framework import serializers
 from .models import User, Address
+from .models import Address
 
 class UserSerializer(serializers.ModelSerializer):
     class Meta:
@@ -12,3 +13,9 @@ class AddressSerializer(serializers.ModelSerializer):
         model = Address
         fields = '__all__'
         read_only_fields = ['user']  # user will be set automatically
+
+class AddressSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = Address
+        fields = '__all__'
+        read_only_fields = ['user']

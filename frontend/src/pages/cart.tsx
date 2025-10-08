@@ -2,22 +2,28 @@ import React, { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import api from '../services/api';
 import { useAuth } from '../context/AuthContext';
-import { theme } from '../styles/theme';
-import Card from '../components/ui/Card';
-import Button from '../components/ui/Button';
+import { useToast } from '../context/ToastContext';
 
 interface CartItemData {
   id: number;
   menu_item: {
     id: number;
     name: string;
+    description?: string;
+    category?: {
+      id: number;
+      name: string;
+    };
     restaurant: {
       id: number;
       name: string;
       delivery_fee: number;
+      cuisine_type?: string;
     };
     price: string;
     image?: string;
+    is_vegetarian?: boolean;
+    is_spicy?: boolean;
   };
   quantity: number;
   unit_price: string;
@@ -28,11 +34,13 @@ interface CartItemData {
 const Cart: React.FC = () => {
   const { user } = useAuth();
   const navigate = useNavigate();
+  const { addToast } = useToast();
   const [cartItems, setCartItems] = useState<CartItemData[]>([]);
   const [loading, setLoading] = useState(true);
   const [updating, setUpdating] = useState<number | null>(null);
   const [promoCode, setPromoCode] = useState('');
   const [discount, setDiscount] = useState(0);
+  const [showPromo, setShowPromo] = useState(false);
 
   useEffect(() => {
     if (user) {
@@ -43,9 +51,10 @@ const Cart: React.FC = () => {
   const fetchCartItems = async () => {
     try {
       const response = await api.get('/orders/cart-items/');
-      setCartItems(response.data.results || []);
+      setCartItems(response.data.results || response.data || []);
     } catch (error) {
       console.error('Failed to fetch cart items:', error);
+      addToast('Failed to load cart items', 'error');
     } finally {
       setLoading(false);
     }
@@ -62,9 +71,11 @@ const Cart: React.FC = () => {
       await api.patch(`/orders/cart-items/${itemId}/`, {
         quantity: newQuantity
       });
-      fetchCartItems();
+      await fetchCartItems();
+      addToast('Cart updated successfully', 'success');
     } catch (error) {
       console.error('Failed to update quantity:', error);
+      addToast('Failed to update cart', 'error');
     } finally {
       setUpdating(null);
     }
@@ -74,22 +85,29 @@ const Cart: React.FC = () => {
     setUpdating(itemId);
     try {
       await api.delete(`/orders/cart-items/${itemId}/`);
-      fetchCartItems();
+      await fetchCartItems();
+      addToast('Item removed from cart', 'success');
     } catch (error) {
       console.error('Failed to remove item:', error);
+      addToast('Failed to remove item', 'error');
     } finally {
       setUpdating(null);
     }
   };
 
   const applyPromoCode = () => {
-    // Mock promo code logic - replace with actual API call
-    if (promoCode.toUpperCase() === 'SAVE10') {
+    const code = promoCode.toUpperCase().trim();
+    if (code === 'SAVE10') {
       setDiscount(10);
-    } else if (promoCode.toUpperCase() === 'FIRST20') {
+      addToast('10% discount applied!', 'success');
+    } else if (code === 'FIRST20') {
       setDiscount(20);
+      addToast('20% discount applied!', 'success');
+    } else if (code === 'WELCOME15') {
+      setDiscount(15);
+      addToast('15% welcome discount applied!', 'success');
     } else {
-      alert('Invalid promo code');
+      addToast('Invalid promo code', 'error');
       setDiscount(0);
     }
   };
@@ -100,10 +118,10 @@ const Cart: React.FC = () => {
     );
     
     const deliveryFee = cartItems.length > 0 ? 
-      (cartItems[0]?.menu_item?.restaurant?.delivery_fee || 30) : 0;
+      (cartItems[0]?.menu_item?.restaurant?.delivery_fee || 40) : 0;
     
     const discountAmount = (subtotal * discount) / 100;
-    const taxes = subtotal * 0.05; // 5% tax
+    const taxes = subtotal * 0.05;
     const total = subtotal + deliveryFee + taxes - discountAmount;
 
     return {
@@ -118,13 +136,26 @@ const Cart: React.FC = () => {
   if (loading) {
     return (
       <div style={{
+        minHeight: '100vh',
+        background: 'linear-gradient(135deg, #FFF5F0 0%, #FFE8DD 100%)',
         display: 'flex',
         justifyContent: 'center',
         alignItems: 'center',
-        height: '400px',
-        fontFamily: theme.typography.fontFamily
+        fontFamily: "'Inter', -apple-system, BlinkMacSystemFont, sans-serif"
       }}>
-        <div>Loading your cart...</div>
+        <div style={{ textAlign: 'center' }}>
+          <div style={{ 
+            width: 60, 
+            height: 60, 
+            border: '4px solid #FFE8DD',
+            borderTop: '4px solid #FF6B35',
+            borderRadius: '50%',
+            margin: '0 auto 20px',
+            animation: 'spin 1s linear infinite'
+          }} />
+          <style>{`@keyframes spin { to { transform: rotate(360deg); } }`}</style>
+          <p style={{ color: '#666', fontSize: 16 }}>Loading your delicious cart...</p>
+        </div>
       </div>
     );
   }
@@ -133,35 +164,79 @@ const Cart: React.FC = () => {
     return (
       <div style={{
         minHeight: '100vh',
-        backgroundColor: theme.colors.gray[50],
-        fontFamily: theme.typography.fontFamily
+        background: 'linear-gradient(135deg, #FFF5F0 0%, #FFE8DD 100%)',
+        fontFamily: "'Inter', -apple-system, BlinkMacSystemFont, sans-serif",
+        padding: '40px 20px'
       }}>
         <div style={{
-          maxWidth: '800px',
+          maxWidth: '500px',
           margin: '0 auto',
-          padding: theme.spacing.lg
+          background: 'white',
+          borderRadius: '24px',
+          padding: '60px 40px',
+          textAlign: 'center',
+          boxShadow: '0 8px 32px rgba(255, 107, 53, 0.1)',
+          border: '1px solid rgba(255, 107, 53, 0.08)'
         }}>
-          <Card style={{ textAlign: 'center', padding: theme.spacing.xxl }}>
-            <div style={{ fontSize: '4rem', marginBottom: theme.spacing.lg }}>🛒</div>
-            <h2 style={{
-              fontSize: theme.typography.fontSize['2xl'],
-              fontWeight: theme.typography.fontWeight.semibold,
-              color: theme.colors.gray[900],
-              margin: `0 0 ${theme.spacing.md} 0`
-            }}>
-              Your cart is empty
-            </h2>
-            <p style={{
-              fontSize: theme.typography.fontSize.base,
-              color: theme.colors.gray[600],
-              margin: `0 0 ${theme.spacing.lg} 0`
-            }}>
-              Looks like you haven't added any items to your cart yet
-            </p>
-            <Button onClick={() => navigate('/restaurants')}>
-              Start Shopping
-            </Button>
-          </Card>
+          <div style={{ 
+            fontSize: '100px', 
+            marginBottom: '24px',
+            background: 'linear-gradient(135deg, #FF6B35, #FF8555)',
+            WebkitBackgroundClip: 'text',
+            WebkitTextFillColor: 'transparent',
+            filter: 'drop-shadow(0 4px 8px rgba(255, 107, 53, 0.3))'
+          }}>
+            🍽️
+          </div>
+          <h2 style={{
+            fontSize: '32px',
+            fontWeight: '700',
+            background: 'linear-gradient(135deg, #333 0%, #666 100%)',
+            WebkitBackgroundClip: 'text',
+            WebkitTextFillColor: 'transparent',
+            margin: '0 0 16px 0'
+          }}>
+            Your cart is empty
+          </h2>
+          <p style={{
+            fontSize: '16px',
+            color: '#666',
+            margin: '0 0 40px 0',
+            lineHeight: 1.6
+          }}>
+            Looks like you haven't added anything to your cart yet. 
+            Start exploring delicious food from your favorite restaurants!
+          </p>
+          <button
+            onClick={() => navigate('/restaurants')}
+            style={{
+              background: 'linear-gradient(135deg, #FF6B35 0%, #FF8555 100%)',
+              color: 'white',
+              border: 'none',
+              padding: '16px 32px',
+              borderRadius: '16px',
+              fontSize: '16px',
+              fontWeight: '600',
+              cursor: 'pointer',
+              boxShadow: '0 8px 24px rgba(255, 107, 53, 0.3)',
+              transition: 'all 0.3s ease',
+              display: 'flex',
+              alignItems: 'center',
+              gap: '8px',
+              margin: '0 auto'
+            }}
+            onMouseOver={(e) => {
+              e.currentTarget.style.transform = 'translateY(-2px)';
+              e.currentTarget.style.boxShadow = '0 12px 32px rgba(255, 107, 53, 0.4)';
+            }}
+            onMouseOut={(e) => {
+              e.currentTarget.style.transform = 'translateY(0)';
+              e.currentTarget.style.boxShadow = '0 8px 24px rgba(255, 107, 53, 0.3)';
+            }}
+          >
+            <span>🏪</span>
+            Browse Restaurants
+          </button>
         </div>
       </div>
     );
@@ -173,350 +248,733 @@ const Cart: React.FC = () => {
   return (
     <div style={{
       minHeight: '100vh',
-      backgroundColor: theme.colors.gray[50],
-      fontFamily: theme.typography.fontFamily
+      background: 'linear-gradient(135deg, #FFF5F0 0%, #FFE8DD 100%)',
+      fontFamily: "'Inter', -apple-system, BlinkMacSystemFont, sans-serif",
+      padding: '20px'
     }}>
       <div style={{
-        maxWidth: '1200px',
-        margin: '0 auto',
-        padding: theme.spacing.lg
+        maxWidth: '1400px',
+        margin: '0 auto'
       }}>
         <div style={{
           display: 'grid',
-          gridTemplateColumns: '1fr 400px',
-          gap: theme.spacing.xl
+          gridTemplateColumns: window.innerWidth > 768 ? '1fr 420px' : '1fr',
+          gap: '24px'
         }}>
-          {/* Cart Items */}
+          {/* Cart Items Section */}
           <div>
+            {/* Header */}
             <div style={{
               display: 'flex',
               justifyContent: 'space-between',
               alignItems: 'center',
-              marginBottom: theme.spacing.lg
+              marginBottom: '24px',
+              flexWrap: 'wrap',
+              gap: '16px'
             }}>
-              <h1 style={{
-                fontSize: theme.typography.fontSize['3xl'],
-                fontWeight: theme.typography.fontWeight.bold,
-                color: theme.colors.gray[900],
-                margin: 0
-              }}>
-                Your Cart
-              </h1>
-              <Button
-                variant="ghost"
+              <div>
+                <h1 style={{
+                  fontSize: '36px',
+                  fontWeight: '800',
+                  margin: '0 0 8px 0',
+                  background: 'linear-gradient(135deg, #FF6B35 0%, #FF8555 100%)',
+                  WebkitBackgroundClip: 'text',
+                  WebkitTextFillColor: 'transparent'
+                }}>
+                  Your Cart
+                </h1>
+                <p style={{
+                  fontSize: '16px',
+                  color: '#666',
+                  margin: 0
+                }}>
+                  {cartItems.length} {cartItems.length === 1 ? 'item' : 'items'} • Ready to checkout
+                </p>
+              </div>
+              <button
                 onClick={() => navigate('/restaurants')}
-              >
-                + Add More Items
-              </Button>
-            </div>
-
-            {/* Restaurant Info */}
-            {restaurant && (
-              <Card style={{ marginBottom: theme.spacing.lg }}>
-                <div style={{
+                style={{
+                  background: 'white',
+                  color: '#FF6B35',
+                  border: '2px solid #FF6B35',
+                  padding: '12px 24px',
+                  borderRadius: '12px',
+                  fontSize: '14px',
+                  fontWeight: '600',
+                  cursor: 'pointer',
+                  transition: 'all 0.3s ease',
                   display: 'flex',
                   alignItems: 'center',
-                  gap: theme.spacing.md
+                  gap: '8px',
+                  boxShadow: '0 4px 12px rgba(255, 107, 53, 0.1)'
+                }}
+                onMouseOver={(e) => {
+                  e.currentTarget.style.background = '#FF6B35';
+                  e.currentTarget.style.color = 'white';
+                  e.currentTarget.style.transform = 'translateY(-2px)';
+                }}
+                onMouseOut={(e) => {
+                  e.currentTarget.style.background = 'white';
+                  e.currentTarget.style.color = '#FF6B35';
+                  e.currentTarget.style.transform = 'translateY(0)';
+                }}
+              >
+                <span>➕</span>
+                Add More Items
+              </button>
+            </div>
+
+            {/* Restaurant Card */}
+            {restaurant && (
+              <div style={{
+                background: 'white',
+                borderRadius: '20px',
+                padding: '24px',
+                marginBottom: '20px',
+                boxShadow: '0 8px 32px rgba(0,0,0,0.08)',
+                border: '1px solid rgba(255, 107, 53, 0.08)',
+                display: 'flex',
+                alignItems: 'center',
+                gap: '20px'
+              }}>
+                <div style={{
+                  width: '80px',
+                  height: '80px',
+                  background: 'linear-gradient(135deg, #FF6B35 0%, #FF8555 100%)',
+                  borderRadius: '16px',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  fontSize: '32px',
+                  boxShadow: '0 4px 16px rgba(255, 107, 53, 0.3)'
                 }}>
-                  <div style={{
-                    fontSize: '2rem'
-                  }}>🏪</div>
-                  <div>
-                    <h3 style={{
-                      fontSize: theme.typography.fontSize.lg,
-                      fontWeight: theme.typography.fontWeight.semibold,
-                      color: theme.colors.gray[900],
-                      margin: 0
+                  🏪
+                </div>
+                <div style={{ flex: 1 }}>
+                  <h3 style={{
+                    fontSize: '20px',
+                    fontWeight: '700',
+                    color: '#333',
+                    margin: '0 0 8px 0'
+                  }}>
+                    {restaurant.name}
+                  </h3>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '16px', flexWrap: 'wrap' }}>
+                    {restaurant.cuisine_type && (
+                      <span style={{
+                        background: '#F0F8FF',
+                        color: '#2563EB',
+                        padding: '4px 12px',
+                        borderRadius: '8px',
+                        fontSize: '12px',
+                        fontWeight: '500'
+                      }}>
+                        {restaurant.cuisine_type}
+                      </span>
+                    )}
+                    <span style={{
+                      color: '#666',
+                      fontSize: '14px'
                     }}>
-                      {restaurant.name}
-                    </h3>
-                    <p style={{
-                      fontSize: theme.typography.fontSize.sm,
-                      color: theme.colors.gray[600],
-                      margin: 0
+                      🚚 Delivery: ₹{restaurant.delivery_fee || 40}
+                    </span>
+                    <span style={{
+                      color: '#666',
+                      fontSize: '14px'
                     }}>
-                      Delivery Fee: ₹{restaurant.delivery_fee || 30}
-                    </p>
+                      ⏰ 25-35 mins
+                    </span>
                   </div>
                 </div>
-              </Card>
+              </div>
             )}
 
             {/* Cart Items */}
-            <div style={{ display: 'flex', flexDirection: 'column', gap: theme.spacing.md }}>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
               {cartItems.map(item => (
-                <Card key={item.id}>
+                <div 
+                  key={item.id}
+                  style={{
+                    background: 'white',
+                    borderRadius: '20px',
+                    padding: '24px',
+                    boxShadow: '0 8px 32px rgba(0,0,0,0.08)',
+                    border: '1px solid rgba(255, 107, 53, 0.08)',
+                    transition: 'all 0.3s ease'
+                  }}
+                  onMouseOver={(e) => {
+                    e.currentTarget.style.boxShadow = '0 12px 40px rgba(0,0,0,0.12)';
+                    e.currentTarget.style.transform = 'translateY(-4px)';
+                  }}
+                  onMouseOut={(e) => {
+                    e.currentTarget.style.boxShadow = '0 8px 32px rgba(0,0,0,0.08)';
+                    e.currentTarget.style.transform = 'translateY(0)';
+                  }}
+                >
                   <div style={{
                     display: 'grid',
-                    gridTemplateColumns: '80px 1fr auto auto',
-                    gap: theme.spacing.md,
+                    gridTemplateColumns: '120px 1fr auto',
+                    gap: '20px',
                     alignItems: 'center'
                   }}>
                     {/* Item Image */}
                     <div style={{
-                      width: '80px',
-                      height: '80px',
-                      backgroundColor: theme.colors.gray[200],
-                      borderRadius: theme.borderRadius.md,
-                      backgroundImage: item.menu_item.image ? `url(${item.menu_item.image})` : 'none',
-                      backgroundSize: 'cover',
-                      backgroundPosition: 'center',
-                      display: 'flex',
-                      alignItems: 'center',
-                      justifyContent: 'center'
+                      width: '120px',
+                      height: '120px',
+                      borderRadius: '16px',
+                      overflow: 'hidden',
+                      background: 'linear-gradient(135deg, #FFE8DD 0%, #FFF5F0 100%)',
+                      position: 'relative',
+                      boxShadow: '0 4px 16px rgba(255, 107, 53, 0.1)'
                     }}>
-                      {!item.menu_item.image && (
-                        <span style={{ fontSize: '2rem' }}>🍽️</span>
-                      )}
+                      {item.menu_item.image ? (
+                        <img 
+                          src={item.menu_item.image} 
+                          alt={item.menu_item.name}
+                          style={{
+                            width: '100%',
+                            height: '100%',
+                            objectFit: 'cover'
+                          }}
+                          onError={(e) => {
+                            const target = e.target as HTMLImageElement;
+                            target.style.display = 'none';
+                            target.nextElementSibling!.setAttribute('style', 'display: flex');
+                          }}
+                        />
+                      ) : null}
+                      <div style={{
+                        width: '100%',
+                        height: '100%',
+                        display: item.menu_item.image ? 'none' : 'flex',
+                        alignItems: 'center',
+                        justifyContent: 'center',
+                        fontSize: '48px',
+                        position: item.menu_item.image ? 'absolute' : 'static',
+                        top: 0,
+                        left: 0
+                      }}>
+                        🍽️
+                      </div>
+                      
+                      {/* Dietary badges */}
+                      <div style={{
+                        position: 'absolute',
+                        top: '8px',
+                        left: '8px',
+                        display: 'flex',
+                        gap: '4px'
+                      }}>
+                        {item.menu_item.is_vegetarian && (
+                          <div style={{
+                            width: '20px',
+                            height: '20px',
+                            background: '#22C55E',
+                            borderRadius: '4px',
+                            display: 'flex',
+                            alignItems: 'center',
+                            justifyContent: 'center',
+                            fontSize: '12px'
+                          }}>
+                            🟢
+                          </div>
+                        )}
+                        {item.menu_item.is_spicy && (
+                          <div style={{
+                            width: '20px',
+                            height: '20px',
+                            background: '#EF4444',
+                            borderRadius: '4px',
+                            display: 'flex',
+                            alignItems: 'center',
+                            justifyContent: 'center',
+                            fontSize: '10px'
+                          }}>
+                            🌶️
+                          </div>
+                        )}
+                      </div>
                     </div>
 
                     {/* Item Details */}
-                    <div>
-                      <h3 style={{
-                        fontSize: theme.typography.fontSize.base,
-                        fontWeight: theme.typography.fontWeight.medium,
-                        color: theme.colors.gray[900],
-                        margin: '0 0 4px 0'
+                    <div style={{ minWidth: 0 }}>
+                      <div style={{
+                        display: 'flex',
+                        alignItems: 'flex-start',
+                        justifyContent: 'space-between',
+                        marginBottom: '8px'
                       }}>
-                        {item.menu_item.name}
-                      </h3>
-                      <p style={{
-                        fontSize: theme.typography.fontSize.sm,
-                        color: theme.colors.gray[600],
-                        margin: '0 0 8px 0'
+                        <h3 style={{
+                          fontSize: '18px',
+                          fontWeight: '700',
+                          color: '#333',
+                          margin: '0',
+                          lineHeight: 1.3
+                        }}>
+                          {item.menu_item.name}
+                        </h3>
+                      </div>
+
+                      {item.menu_item.category && (
+                        <span style={{
+                          background: '#F3F4F6',
+                          color: '#6B7280',
+                          padding: '4px 8px',
+                          borderRadius: '6px',
+                          fontSize: '11px',
+                          fontWeight: '500',
+                          marginBottom: '8px',
+                          display: 'inline-block'
+                        }}>
+                          {item.menu_item.category.name}
+                        </span>
+                      )}
+
+                      {item.menu_item.description && (
+                        <p style={{
+                          fontSize: '14px',
+                          color: '#666',
+                          margin: '8px 0',
+                          lineHeight: 1.5,
+                          display: '-webkit-box',
+                          WebkitLineClamp: 2,
+                          WebkitBoxOrient: 'vertical',
+                          overflow: 'hidden'
+                        }}>
+                          {item.menu_item.description}
+                        </p>
+                      )}
+
+                      <div style={{
+                        fontSize: '18px',
+                        fontWeight: '700',
+                        color: '#FF6B35',
+                        margin: '12px 0 8px 0'
                       }}>
                         ₹{item.unit_price} each
-                      </p>
+                      </div>
+
                       {item.special_instructions && (
-                        <p style={{
-                          fontSize: theme.typography.fontSize.xs,
-                          color: theme.colors.gray[500],
-                          margin: 0,
-                          fontStyle: 'italic'
+                        <div style={{
+                          marginTop: '12px',
+                          padding: '12px',
+                          background: '#FEF3E2',
+                          borderRadius: '8px',
+                          border: '1px solid #FDE68A'
                         }}>
-                          Note: {item.special_instructions}
-                        </p>
+                          <p style={{
+                            fontSize: '13px',
+                            color: '#92400E',
+                            margin: 0,
+                            fontWeight: '500',
+                            lineHeight: 1.4
+                          }}>
+                            <span style={{ marginRight: '6px' }}>📝</span>
+                            Special Instructions: {item.special_instructions}
+                          </p>
+                        </div>
                       )}
                     </div>
 
-                    {/* Quantity Controls */}
-                    <div style={{
-                      display: 'flex',
-                      alignItems: 'center',
-                      gap: theme.spacing.sm,
-                      border: `1px solid ${theme.colors.gray[300]}`,
-                      borderRadius: theme.borderRadius.md,
-                      padding: theme.spacing.xs
+                    {/* Quantity & Price Controls */}
+                    <div style={{ 
+                      textAlign: 'right',
+                      minWidth: '140px'
                     }}>
-                      <button
-                        onClick={() => updateQuantity(item.id, item.quantity - 1)}
-                        disabled={updating === item.id || item.quantity <= 1}
-                        style={{
-                          background: 'none',
-                          border: 'none',
-                          fontSize: theme.typography.fontSize.base,
-                          color: theme.colors.primary.main,
-                          cursor: 'pointer',
-                          padding: theme.spacing.xs,
-                          borderRadius: theme.borderRadius.sm
-                        }}
-                      >
-                        −
-                      </button>
-                      <span style={{
-                        fontSize: theme.typography.fontSize.base,
-                        fontWeight: theme.typography.fontWeight.medium,
-                        minWidth: '30px',
-                        textAlign: 'center'
-                      }}>
-                        {item.quantity}
-                      </span>
-                      <button
-                        onClick={() => updateQuantity(item.id, item.quantity + 1)}
-                        disabled={updating === item.id}
-                        style={{
-                          background: 'none',
-                          border: 'none',
-                          fontSize: theme.typography.fontSize.base,
-                          color: theme.colors.primary.main,
-                          cursor: 'pointer',
-                          padding: theme.spacing.xs,
-                          borderRadius: theme.borderRadius.sm
-                        }}
-                      >
-                        +
-                      </button>
-                    </div>
-
-                    {/* Item Total & Remove */}
-                    <div style={{ textAlign: 'right' }}>
-                      <p style={{
-                        fontSize: theme.typography.fontSize.lg,
-                        fontWeight: theme.typography.fontWeight.semibold,
-                        color: theme.colors.gray[900],
-                        margin: '0 0 8px 0'
+                      <div style={{
+                        fontSize: '24px',
+                        fontWeight: '700',
+                        color: '#FF6B35',
+                        marginBottom: '16px'
                       }}>
                         ₹{(parseFloat(item.unit_price) * item.quantity).toFixed(2)}
-                      </p>
+                      </div>
+                      
+                      {/* Quantity Controls */}
+                      <div style={{
+                        display: 'inline-flex',
+                        alignItems: 'center',
+                        gap: '12px',
+                        background: '#F8FAFC',
+                        borderRadius: '12px',
+                        padding: '8px 12px',
+                        border: '2px solid #E2E8F0',
+                        marginBottom: '12px'
+                      }}>
+                        <button
+                          onClick={() => updateQuantity(item.id, item.quantity - 1)}
+                          disabled={updating === item.id}
+                          style={{
+                            background: 'white',
+                            border: '1px solid #E2E8F0',
+                            width: '32px',
+                            height: '32px',
+                            borderRadius: '8px',
+                            fontSize: '20px',
+                            fontWeight: '700',
+                            color: '#FF6B35',
+                            cursor: updating === item.id ? 'not-allowed' : 'pointer',
+                            display: 'flex',
+                            alignItems: 'center',
+                            justifyContent: 'center',
+                            transition: 'all 0.2s ease',
+                            opacity: updating === item.id ? 0.5 : 1
+                          }}
+                          onMouseOver={(e) => {
+                            if (updating !== item.id) {
+                              e.currentTarget.style.background = '#FFE8DD';
+                              e.currentTarget.style.borderColor = '#FF6B35';
+                            }
+                          }}
+                          onMouseOut={(e) => {
+                            if (updating !== item.id) {
+                              e.currentTarget.style.background = 'white';
+                              e.currentTarget.style.borderColor = '#E2E8F0';
+                            }
+                          }}
+                        >
+                          −
+                        </button>
+                        <span style={{
+                          fontSize: '18px',
+                          fontWeight: '700',
+                          color: '#333',
+                          minWidth: '24px',
+                          textAlign: 'center'
+                        }}>
+                          {updating === item.id ? '...' : item.quantity}
+                        </span>
+                        <button
+                          onClick={() => updateQuantity(item.id, item.quantity + 1)}
+                          disabled={updating === item.id}
+                          style={{
+                            background: 'white',
+                            border: '1px solid #E2E8F0',
+                            width: '32px',
+                            height: '32px',
+                            borderRadius: '8px',
+                            fontSize: '20px',
+                            fontWeight: '700',
+                            color: '#FF6B35',
+                            cursor: updating === item.id ? 'not-allowed' : 'pointer',
+                            display: 'flex',
+                            alignItems: 'center',
+                            justifyContent: 'center',
+                            transition: 'all 0.2s ease',
+                            opacity: updating === item.id ? 0.5 : 1
+                          }}
+                          onMouseOver={(e) => {
+                            if (updating !== item.id) {
+                              e.currentTarget.style.background = '#FFE8DD';
+                              e.currentTarget.style.borderColor = '#FF6B35';
+                            }
+                          }}
+                          onMouseOut={(e) => {
+                            if (updating !== item.id) {
+                              e.currentTarget.style.background = 'white';
+                              e.currentTarget.style.borderColor = '#E2E8F0';
+                            }
+                          }}
+                        >
+                          +
+                        </button>
+                      </div>
+                      
                       <button
                         onClick={() => removeItem(item.id)}
                         disabled={updating === item.id}
                         style={{
-                          background: 'none',
-                          border: 'none',
-                          color: theme.colors.error,
-                          fontSize: theme.typography.fontSize.sm,
-                          cursor: 'pointer',
-                          textDecoration: 'underline'
+                          background: updating === item.id ? '#FEE2E2' : '#FEF2F2',
+                          border: `1px solid ${updating === item.id ? '#FECACA' : '#FDE2E2'}`,
+                          color: updating === item.id ? '#DC2626' : '#EF4444',
+                          fontSize: '12px',
+                          fontWeight: '600',
+                          cursor: updating === item.id ? 'not-allowed' : 'pointer',
+                          padding: '8px 16px',
+                          borderRadius: '8px',
+                          display: 'flex',
+                          alignItems: 'center',
+                          justifyContent: 'center',
+                          gap: '6px',
+                          width: '100%',
+                          transition: 'all 0.2s ease'
+                        }}
+                        onMouseOver={(e) => {
+                          if (updating !== item.id) {
+                            e.currentTarget.style.background = '#FEE2E2';
+                            e.currentTarget.style.borderColor = '#FECACA';
+                          }
+                        }}
+                        onMouseOut={(e) => {
+                          if (updating !== item.id) {
+                            e.currentTarget.style.background = '#FEF2F2';
+                            e.currentTarget.style.borderColor = '#FDE2E2';
+                          }
                         }}
                       >
-                        {updating === item.id ? 'Removing...' : 'Remove'}
+                        {updating === item.id ? (
+                          <>⏳ Removing...</>
+                        ) : (
+                          <>🗑️ Remove</>
+                        )}
                       </button>
                     </div>
                   </div>
-                </Card>
+                </div>
               ))}
             </div>
           </div>
 
-          {/* Order Summary */}
+          {/* Order Summary Sidebar */}
           <div>
-            <Card style={{ position: 'sticky', top: '100px' }}>
+            <div style={{
+              background: 'white',
+              borderRadius: '24px',
+              padding: '28px',
+              boxShadow: '0 12px 40px rgba(0,0,0,0.12)',
+              border: '1px solid rgba(255, 107, 53, 0.08)',
+              position: 'sticky',
+              top: '20px'
+            }}>
               <h2 style={{
-                fontSize: theme.typography.fontSize.xl,
-                fontWeight: theme.typography.fontWeight.semibold,
-                color: theme.colors.gray[900],
-                margin: `0 0 ${theme.spacing.lg} 0`
+                fontSize: '24px',
+                fontWeight: '800',
+                color: '#333',
+                margin: '0 0 24px 0',
+                background: 'linear-gradient(135deg, #333 0%, #666 100%)',
+                WebkitBackgroundClip: 'text',
+                WebkitTextFillColor: 'transparent'
               }}>
-                Order Summary
+                Bill Details
               </h2>
 
-              {/* Promo Code */}
-              <div style={{ marginBottom: theme.spacing.lg }}>
-                <div style={{
-                  display: 'flex',
-                  gap: theme.spacing.sm,
-                  marginBottom: theme.spacing.sm
-                }}>
-                  <input
-                    type="text"
-                    placeholder="Enter promo code"
-                    value={promoCode}
-                    onChange={(e) => setPromoCode(e.target.value)}
-                    style={{
-                      flex: 1,
-                      padding: theme.spacing.sm,
-                      border: `1px solid ${theme.colors.gray[300]}`,
-                      borderRadius: theme.borderRadius.sm,
-                      fontSize: theme.typography.fontSize.sm
-                    }}
-                  />
-                  <Button
-                    size="sm"
-                    variant="outline"
-                    onClick={applyPromoCode}
-                  >
-                    Apply
-                  </Button>
-                </div>
-                {discount > 0 && (
-                  <p style={{
-                    fontSize: theme.typography.fontSize.xs,
-                    color: theme.colors.success,
-                    margin: 0
+              {/* Promo Code Section */}
+              <div style={{
+                marginBottom: '24px',
+                padding: '20px',
+                background: 'linear-gradient(135deg, #FEF3E2 0%, #FFF7ED 100%)',
+                borderRadius: '16px',
+                border: '2px dashed #FB923C'
+              }}>
+                <button
+                  onClick={() => setShowPromo(!showPromo)}
+                  style={{
+                    background: 'none',
+                    border: 'none',
+                    width: '100%',
+                    display: 'flex',
+                    justifyContent: 'space-between',
+                    alignItems: 'center',
+                    cursor: 'pointer',
+                    padding: 0
+                  }}
+                >
+                  <span style={{
+                    fontSize: '16px',
+                    fontWeight: '700',
+                    color: '#EA580C',
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: '8px'
                   }}>
-                    ✅ {discount}% discount applied!
-                  </p>
+                    🎟️ Apply Promo Code
+                  </span>
+                  <span style={{ 
+                    color: '#EA580C',
+                    fontSize: '16px',
+                    transform: showPromo ? 'rotate(180deg)' : 'rotate(0deg)',
+                    transition: 'transform 0.3s ease'
+                  }}>
+                    ▼
+                  </span>
+                </button>
+                
+                {showPromo && (
+                  <div style={{ marginTop: '16px' }}>
+                    <div style={{
+                      display: 'flex',
+                      gap: '8px',
+                      marginBottom: '12px'
+                    }}>
+                      <input
+                        type="text"
+                        placeholder="Enter promo code"
+                        value={promoCode}
+                        onChange={(e) => setPromoCode(e.target.value)}
+                        style={{
+                          flex: 1,
+                          padding: '12px 16px',
+                          border: '2px solid #E2E8F0',
+                          borderRadius: '12px',
+                          fontSize: '14px',
+                          outline: 'none',
+                          background: 'white',
+                          transition: 'border-color 0.2s ease'
+                        }}
+                        onFocus={(e) => e.currentTarget.style.borderColor = '#FF6B35'}
+                        onBlur={(e) => e.currentTarget.style.borderColor = '#E2E8F0'}
+                      />
+                      <button
+                        onClick={applyPromoCode}
+                        style={{
+                          background: 'linear-gradient(135deg, #FF6B35 0%, #FF8555 100%)',
+                          color: 'white',
+                          border: 'none',
+                          padding: '12px 20px',
+                          borderRadius: '12px',
+                          fontSize: '14px',
+                          fontWeight: '700',
+                          cursor: 'pointer',
+                          boxShadow: '0 4px 12px rgba(255, 107, 53, 0.3)',
+                          transition: 'transform 0.2s ease'
+                        }}
+                        onMouseOver={(e) => e.currentTarget.style.transform = 'scale(1.05)'}
+                        onMouseOut={(e) => e.currentTarget.style.transform = 'scale(1)'}
+                      >
+                        Apply
+                      </button>
+                    </div>
+                    <div style={{ fontSize: '12px', color: '#666', lineHeight: 1.4 }}>
+                      Try: <strong>SAVE10</strong>, <strong>FIRST20</strong>, or <strong>WELCOME15</strong>
+                    </div>
+                    {discount > 0 && (
+                      <div style={{
+                        marginTop: '12px',
+                        padding: '8px 12px',
+                        background: '#DCFCE7',
+                        borderRadius: '8px',
+                        border: '1px solid #BBF7D0'
+                      }}>
+                        <p style={{
+                          fontSize: '13px',
+                          color: '#166534',
+                          margin: 0,
+                          fontWeight: '600'
+                        }}>
+                          ✅ {discount}% discount applied successfully!
+                        </p>
+                      </div>
+                    )}
+                  </div>
                 )}
               </div>
 
               {/* Price Breakdown */}
               <div style={{
-                borderTop: `1px solid ${theme.colors.gray[200]}`,
-                paddingTop: theme.spacing.md
+                borderTop: '2px solid #F1F5F9',
+                paddingTop: '20px'
               }}>
                 <div style={{
                   display: 'flex',
                   justifyContent: 'space-between',
-                  marginBottom: theme.spacing.sm
+                  marginBottom: '16px'
                 }}>
-                  <span style={{ color: theme.colors.gray[600] }}>Subtotal</span>
-                  <span>₹{totals.subtotal}</span>
+                  <span style={{ color: '#666', fontSize: '15px' }}>Item Total</span>
+                  <span style={{ fontSize: '15px', fontWeight: '600' }}>₹{totals.subtotal}</span>
                 </div>
                 
                 <div style={{
                   display: 'flex',
                   justifyContent: 'space-between',
-                  marginBottom: theme.spacing.sm
+                  marginBottom: '16px'
                 }}>
-                  <span style={{ color: theme.colors.gray[600] }}>Delivery Fee</span>
-                  <span>₹{totals.deliveryFee}</span>
+                  <span style={{ color: '#666', fontSize: '15px' }}>Delivery Fee</span>
+                  <span style={{ fontSize: '15px', fontWeight: '600' }}>₹{totals.deliveryFee}</span>
                 </div>
                 
                 <div style={{
                   display: 'flex',
                   justifyContent: 'space-between',
-                  marginBottom: theme.spacing.sm
+                  marginBottom: '16px'
                 }}>
-                  <span style={{ color: theme.colors.gray[600] }}>Taxes & Fees</span>
-                  <span>₹{totals.taxes}</span>
+                  <span style={{ color: '#666', fontSize: '15px' }}>Taxes & Charges</span>
+                  <span style={{ fontSize: '15px', fontWeight: '600' }}>₹{totals.taxes}</span>
                 </div>
 
                 {discount > 0 && (
                   <div style={{
                     display: 'flex',
                     justifyContent: 'space-between',
-                    marginBottom: theme.spacing.sm
+                    marginBottom: '16px'
                   }}>
-                    <span style={{ color: theme.colors.success }}>Discount</span>
-                    <span style={{ color: theme.colors.success }}>-₹{totals.discount}</span>
+                    <span style={{ color: '#22C55E', fontSize: '15px', fontWeight: '500' }}>
+                      Discount ({discount}%)
+                    </span>
+                    <span style={{ color: '#22C55E', fontSize: '15px', fontWeight: '700' }}>
+                      -₹{totals.discount}
+                    </span>
                   </div>
                 )}
 
-                <hr style={{
-                  border: 'none',
-                  borderTop: `1px solid ${theme.colors.gray[200]}`,
-                  margin: `${theme.spacing.md} 0`
-                }} />
-
                 <div style={{
+                  borderTop: '2px solid #F1F5F9',
+                  paddingTop: '20px',
+                  marginTop: '20px',
                   display: 'flex',
                   justifyContent: 'space-between',
-                  marginBottom: theme.spacing.lg
+                  marginBottom: '32px'
                 }}>
                   <span style={{
-                    fontSize: theme.typography.fontSize.lg,
-                    fontWeight: theme.typography.fontWeight.semibold
+                    fontSize: '20px',
+                    fontWeight: '800',
+                    color: '#333'
                   }}>
-                    Total
+                    To Pay
                   </span>
                   <span style={{
-                    fontSize: theme.typography.fontSize.lg,
-                    fontWeight: theme.typography.fontWeight.bold,
-                    color: theme.colors.primary.main
+                    fontSize: '24px',
+                    fontWeight: '800',
+                    color: '#FF6B35'
                   }}>
                     ₹{totals.total}
                   </span>
                 </div>
 
-                <Button
-                  size="lg"
+                <button
                   onClick={() => navigate('/checkout')}
-                  style={{ width: '100%' }}
+                  style={{
+                    width: '100%',
+                    background: 'linear-gradient(135deg, #FF6B35 0%, #FF8555 100%)',
+                    color: 'white',
+                    border: 'none',
+                    padding: '18px',
+                    borderRadius: '16px',
+                    fontSize: '18px',
+                    fontWeight: '700',
+                    cursor: 'pointer',
+                    boxShadow: '0 8px 24px rgba(255, 107, 53, 0.3)',
+                    transition: 'all 0.3s ease',
+                    marginBottom: '16px',
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    gap: '8px'
+                  }}
+                  onMouseOver={(e) => {
+                    e.currentTarget.style.transform = 'translateY(-2px)';
+                    e.currentTarget.style.boxShadow = '0 12px 32px rgba(255, 107, 53, 0.4)';
+                  }}
+                  onMouseOut={(e) => {
+                    e.currentTarget.style.transform = 'translateY(0)';
+                    e.currentTarget.style.boxShadow = '0 8px 24px rgba(255, 107, 53, 0.3)';
+                  }}
                 >
+                  <span>🚀</span>
                   Proceed to Checkout
-                </Button>
+                </button>
 
                 <p style={{
-                  fontSize: theme.typography.fontSize.xs,
-                  color: theme.colors.gray[500],
+                  fontSize: '12px',
+                  color: '#94A3B8',
                   textAlign: 'center',
-                  margin: `${theme.spacing.sm} 0 0 0`
+                  margin: 0,
+                  lineHeight: 1.5
                 }}>
-                  By placing your order, you agree to our Terms & Conditions
+                  By placing your order, you agree to our <br />
+                  <strong>Terms & Conditions</strong> and <strong>Privacy Policy</strong>
                 </p>
               </div>
-            </Card>
+            </div>
           </div>
         </div>
       </div>
