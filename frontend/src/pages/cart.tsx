@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useState, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
 import api from '../services/api';
 import { useAuth } from '../context/AuthContext';
@@ -7,29 +7,15 @@ import CartItemCard from '../components/cart/CartItemCard';
 
 interface CartItemData {
   id: number;
-  menu_item: {
-    id: number;
-    name: string;
-    description?: string;
-    category?: {
-      id: number;
-      name: string;
-    };
-    restaurant: {
-      id: number;
-      name: string;
-      delivery_fee: number;
-      cuisine_type?: string;
-    };
-    price: string;
-    image?: string;
-    is_vegetarian?: boolean;
-    is_spicy?: boolean;
-  };
+  subtotal: number;
+  menu_item_name: string;
+  created_at: string;
+  updated_at: string;
   quantity: number;
-  unit_price: string;
-  subtotal?: string;
   special_instructions?: string;
+  unit_price: string;
+  cart: number;
+  menu_item: number;
 }
 
 const Cart: React.FC = () => {
@@ -42,17 +28,8 @@ const Cart: React.FC = () => {
   const [promoCode, setPromoCode] = useState('');
   const [discount, setDiscount] = useState(0);
   const [showPromo, setShowPromo] = useState(false);
-  if (cartItems.length > 0) {
-  console.log('Cart item structure:', JSON.stringify(cartItems[0], null, 2));
-}
 
-  useEffect(() => {
-    if (user) {
-      fetchCartItems();
-    }
-  }, [user]);
-
-  const fetchCartItems = async () => {
+  const fetchCartItems = useCallback(async () => {
     try {
       const response = await api.get('/orders/cart-items/');
       setCartItems(response.data.results || response.data || []);
@@ -62,7 +39,13 @@ const Cart: React.FC = () => {
     } finally {
       setLoading(false);
     }
-  };
+  }, [addToast]);
+
+  useEffect(() => {
+    if (user) {
+      fetchCartItems();
+    }
+  }, [user, fetchCartItems]);
 
   const updateQuantity = async (itemId: number, newQuantity: number) => {
     if (newQuantity <= 0) {
@@ -121,9 +104,7 @@ const Cart: React.FC = () => {
       total + (parseFloat(item.unit_price) * item.quantity), 0
     );
     
-    const deliveryFee = cartItems.length > 0 ? 
-      (cartItems[0]?.menu_item?.restaurant?.delivery_fee || 40) : 0;
-    
+    const deliveryFee = cartItems.length > 0 ? 40 : 0;
     const discountAmount = (subtotal * discount) / 100;
     const taxes = subtotal * 0.05;
     const total = subtotal + deliveryFee + taxes - discountAmount;
@@ -247,7 +228,6 @@ const Cart: React.FC = () => {
   }
 
   const totals = calculateTotals();
-  const restaurant = cartItems[0]?.menu_item?.restaurant;
 
   return (
     <div style={{
@@ -328,85 +308,15 @@ const Cart: React.FC = () => {
               </button>
             </div>
 
-            {/* Restaurant Card */}
-            {restaurant && (
-              <div style={{
-                background: 'white',
-                borderRadius: '20px',
-                padding: '24px',
-                marginBottom: '20px',
-                boxShadow: '0 8px 32px rgba(0,0,0,0.08)',
-                border: '1px solid rgba(255, 107, 53, 0.08)',
-                display: 'flex',
-                alignItems: 'center',
-                gap: '20px'
-              }}>
-                <div style={{
-                  width: '80px',
-                  height: '80px',
-                  background: 'linear-gradient(135deg, #FF6B35 0%, #FF8555 100%)',
-                  borderRadius: '16px',
-                  display: 'flex',
-                  alignItems: 'center',
-                  justifyContent: 'center',
-                  fontSize: '32px',
-                  boxShadow: '0 4px 16px rgba(255, 107, 53, 0.3)'
-                }}>
-                  🏪
-                </div>
-                <div style={{ flex: 1 }}>
-                  <h3 style={{
-                    fontSize: '20px',
-                    fontWeight: '700',
-                    color: '#333',
-                    margin: '0 0 8px 0'
-                  }}>
-                    {restaurant.name}
-                  </h3>
-                  <div style={{ display: 'flex', alignItems: 'center', gap: '16px', flexWrap: 'wrap' }}>
-                    {restaurant.cuisine_type && (
-                      <span style={{
-                        background: '#F0F8FF',
-                        color: '#2563EB',
-                        padding: '4px 12px',
-                        borderRadius: '8px',
-                        fontSize: '12px',
-                        fontWeight: '500'
-                      }}>
-                        {restaurant.cuisine_type}
-                      </span>
-                    )}
-                    <span style={{
-                      color: '#666',
-                      fontSize: '14px'
-                    }}>
-                      🚚 Delivery: ₹{restaurant.delivery_fee || 40}
-                    </span>
-                    <span style={{
-                      color: '#666',
-                      fontSize: '14px'
-                    }}>
-                      ⏰ 25-35 mins
-                    </span>
-                  </div>
-                </div>
-              </div>
-            )}
-
             {/* Cart Items */}
             <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
               {cartItems.map(item => (
                 <CartItemCard
                   key={item.id}
                   id={item.id}
-                  name={item.menu_item.name}
-                  description={item.menu_item.description}
-                  image={item.menu_item.image}
+                  name={item.menu_item_name}
                   unitPrice={parseFloat(item.unit_price)}
                   quantity={item.quantity}
-                  category={item.menu_item.category?.name}
-                  isVegetarian={item.menu_item.is_vegetarian}
-                  isSpicy={item.menu_item.is_spicy}
                   specialInstructions={item.special_instructions}
                   updating={updating === item.id}
                   onIncrease={() => updateQuantity(item.id, item.quantity + 1)}

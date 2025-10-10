@@ -3,13 +3,8 @@ import React from 'react';
 interface CartItemCardProps {
   id: number;
   name: string;
-  description?: string;
-  image?: string;
   unitPrice: number;
   quantity: number;
-  category?: string;
-  isVegetarian?: boolean;
-  isSpicy?: boolean;
   specialInstructions?: string;
   onIncrease: () => void;
   onDecrease: () => void;
@@ -19,13 +14,8 @@ interface CartItemCardProps {
 
 const CartItemCard: React.FC<CartItemCardProps> = ({
   name,
-  description,
-  image,
   unitPrice,
   quantity,
-  category,
-  isVegetarian,
-  isSpicy,
   specialInstructions,
   onIncrease,
   onDecrease,
@@ -65,125 +55,65 @@ const CartItemCard: React.FC<CartItemCardProps> = ({
           overflow: 'hidden',
           background: 'linear-gradient(135deg, #FFE8DD 0%, #FFF5F0 100%)',
           position: 'relative',
-          boxShadow: '0 4px 16px rgba(255, 107, 53, 0.1)'
+          boxShadow: '0 4px 16px rgba(255, 107, 53, 0.1)',
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'center',
+          fontSize: '48px'
         }}>
-          {image ? (
-            <img 
-              src={image} 
-              alt={name}
-              style={{
-                width: '100%',
-                height: '100%',
-                objectFit: 'cover'
-              }}
-              onError={(e) => {
-                const target = e.target as HTMLImageElement;
-                target.style.display = 'none';
-                target.nextElementSibling!.setAttribute('style', 'display: flex');
-              }}
-            />
-          ) : null}
-          <div style={{
-            width: '100%',
-            height: '100%',
-            display: image ? 'none' : 'flex',
-            alignItems: 'center',
-            justifyContent: 'center',
-            fontSize: '48px',
-            position: image ? 'absolute' : 'static',
-            top: 0,
-            left: 0
-          }}>
-            🍽️
-          </div>
-          
-          {/* Dietary badges */}
-          <div style={{
-            position: 'absolute',
-            top: '8px',
-            left: '8px',
-            display: 'flex',
-            gap: '4px'
-          }}>
-            {isVegetarian && (
-              <div style={{
-                width: '20px',
-                height: '20px',
-                background: '#22C55E',
-                borderRadius: '4px',
-                display: 'flex',
-                alignItems: 'center',
-                justifyContent: 'center',
-                fontSize: '12px'
-              }}>
-                🟢
-              </div>
-            )}
-            {isSpicy && (
-              <div style={{
-                width: '20px',
-                height: '20px',
-                background: '#EF4444',
-                borderRadius: '4px',
-                display: 'flex',
-                alignItems: 'center',
-                justifyContent: 'center',
-                fontSize: '10px'
-              }}>
-                🌶️
-              </div>
-            )}
-          </div>
+          🍕
         </div>
 
         {/* Item Details */}
         <div style={{ minWidth: 0 }}>
+          <h3 style={{
+            fontSize: '20px',
+            fontWeight: '700',
+            color: '#333',
+            margin: '0 0 8px 0',
+            lineHeight: 1.3
+          }}>
+            {name}
+          </h3>
+
           <div style={{
             display: 'flex',
-            alignItems: 'flex-start',
-            justifyContent: 'space-between',
-            marginBottom: '8px'
+            alignItems: 'center',
+            gap: '8px',
+            marginBottom: '12px'
           }}>
-            <h3 style={{
-              fontSize: '18px',
-              fontWeight: '700',
-              color: '#333',
-              margin: '0',
-              lineHeight: 1.3
-            }}>
-              {name}
-            </h3>
-          </div>
-
-          {category && (
             <span style={{
-              background: '#F3F4F6',
-              color: '#6B7280',
+              background: '#F0F8FF',
+              color: '#2563EB',
               padding: '4px 8px',
               borderRadius: '6px',
-              fontSize: '11px',
-              fontWeight: '500',
-              marginBottom: '8px',
-              display: 'inline-block'
+              fontSize: '12px',
+              fontWeight: '500'
             }}>
-              {category}
+              Popular
             </span>
-          )}
-
-          {description && (
-            <p style={{
-              fontSize: '14px',
-              color: '#666',
-              margin: '8px 0',
-              lineHeight: 1.5,
-              display: '-webkit-box',
-              WebkitLineClamp: 2,
-              WebkitBoxOrient: 'vertical',
-              overflow: 'hidden'
+            <div style={{
+              width: '16px',
+              height: '16px',
+              background: '#22C55E',
+              borderRadius: '2px',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              fontSize: '8px'
             }}>
-              {description}
-            </p>
-          )}
+              🟢
+            </div>
+          </div>
+
+          <p style={{
+            fontSize: '14px',
+            color: '#666',
+            margin: '8px 0 12px 0',
+            lineHeight: 1.5
+          }}>
+            Delicious and freshly prepared with premium ingredients. Perfect for any meal!
+          </p>
 
           <div style={{
             fontSize: '18px',
@@ -194,7 +124,7 @@ const CartItemCard: React.FC<CartItemCardProps> = ({
             ₹{unitPrice.toFixed(2)} each
           </div>
 
-          {specialInstructions && (
+          {specialInstructions && specialInstructions.trim() && (
             <div style={{
               marginTop: '12px',
               padding: '12px',

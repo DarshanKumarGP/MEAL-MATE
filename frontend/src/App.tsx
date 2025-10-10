@@ -9,7 +9,6 @@ import { ToastProvider } from './context/ToastContext';
 import { NotificationProvider } from './context/NotificationContext';
 import Header from './components/layout/Header';
 import Toaster from './components/ui/Toaster';
-import Home from './pages/Home';
 import Login from './pages/Login';
 import Register from './pages/Register';
 import RestaurantList from './pages/RestaurantList';
@@ -22,7 +21,6 @@ import OrderDetail from './pages/OrderDetail';
 import Dashboard from './pages/Dashboard';
 import RestaurantDashboard from './pages/RestaurantDashboard';
 import UserProfile from './pages/UserProfile';
-
 
 const muiTheme = createTheme({
   palette: {
@@ -37,7 +35,7 @@ const muiTheme = createTheme({
 const ProtectedRoute: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const { user, loading } = useAuth();
   if (loading) return <div>Loading...</div>;
-  return user ? <>{children}</> : <Navigate to="/login" />;
+  return user ? <>{children}</> : <Navigate to="/login" replace />;
 };
 
 function AppRoutes() {
@@ -45,23 +43,41 @@ function AppRoutes() {
 
   return (
     <Router>
+      {/* Show header only when authenticated */}
       {user && <Header />}
-      <Routes>
-        <Route path="/" element={<Home />} />
-        <Route path="/login" element={<Login />} />
-        <Route path="/register" element={<Register />} />
-        <Route path="/restaurants" element={<RestaurantList />} />
-        <Route path="/restaurants/:id" element={<RestaurantDetail />} />
 
+      <Routes>
+        {/* Root: redirect based on auth */}
         <Route
-          path="/orders/:id"
+          path="/"
           element={
-            <ProtectedRoute>
-              <OrderDetail />
-            </ProtectedRoute>
+            user
+              ? <Navigate to="/restaurants" replace />
+              : <Navigate to="/login" replace />
           }
         />
 
+        {/* Public */}
+        <Route path="/login" element={<Login />} />
+        <Route path="/register" element={<Register />} />
+
+        {/* Protected */}
+        <Route
+          path="/restaurants"
+          element={
+            <ProtectedRoute>
+              <RestaurantList />
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path="/restaurants/:id"
+          element={
+            <ProtectedRoute>
+              <RestaurantDetail />
+            </ProtectedRoute>
+          }
+        />
         <Route
           path="/cart"
           element={
@@ -70,7 +86,6 @@ function AppRoutes() {
             </ProtectedRoute>
           }
         />
-
         <Route
           path="/checkout"
           element={
@@ -79,7 +94,6 @@ function AppRoutes() {
             </ProtectedRoute>
           }
         />
-
         <Route
           path="/orders"
           element={
@@ -88,7 +102,14 @@ function AppRoutes() {
             </ProtectedRoute>
           }
         />
-
+        <Route
+          path="/orders/:id"
+          element={
+            <ProtectedRoute>
+              <OrderDetail />
+            </ProtectedRoute>
+          }
+        />
         <Route
           path="/addresses"
           element={
@@ -97,7 +118,6 @@ function AppRoutes() {
             </ProtectedRoute>
           }
         />
-
         <Route
           path="/dashboard"
           element={
@@ -106,7 +126,6 @@ function AppRoutes() {
             </ProtectedRoute>
           }
         />
-
         <Route
           path="/restaurant-dashboard"
           element={
@@ -115,7 +134,6 @@ function AppRoutes() {
             </ProtectedRoute>
           }
         />
-
         <Route
           path="/profile"
           element={
@@ -125,7 +143,11 @@ function AppRoutes() {
           }
         />
 
-        <Route path="*" element={<Navigate to={user ? "/restaurants" : "/"} />} />
+        {/* Catch-all: redirect to login if unauthenticated */}
+        <Route
+          path="*"
+          element={<Navigate to={user ? "/restaurants" : "/login"} replace />}
+        />
       </Routes>
     </Router>
   );
@@ -140,20 +162,12 @@ function App() {
           <style>
             {`
               @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap');
-              @keyframes spin {
-                0% { transform: rotate(0deg); }
-                100% { transform: rotate(360deg); }
-              }
               * { box-sizing: border-box; }
               body {
                 margin: 0;
                 padding: 0;
                 font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
                 background-color: #F9FAFB;
-              }
-              @media (max-width: 768px) {
-                body { font-size: 14px; }
-                .container { padding: 8px !important; }
               }
             `}
           </style>
