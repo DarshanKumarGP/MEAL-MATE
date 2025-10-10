@@ -244,16 +244,16 @@ const RestaurantDetail: React.FC = () => {
                   >
                     {restaurant.cuisine_type}
                   </span>
-                  {restaurant.rating && (
-                    <span
-                      style={{
+                  {typeof restaurant.rating !== 'undefined' && (
+                   <span
+                     style={{
                         fontSize: theme.typography.fontSize.sm,
                         color: theme.colors.success,
                       }}
                     >
-                      ⭐ {restaurant.rating.toFixed(1)}
-                    </span>
-                  )}
+                        ⭐ {Number(restaurant.rating).toFixed(1)}
+                  </span>
+                 )}
                   <span style={{ color: theme.colors.gray[500], fontSize: theme.typography.fontSize.sm }}>
                     🚚 {restaurant.delivery_time || '30-45 min'}
                   </span>

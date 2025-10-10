@@ -1,6 +1,7 @@
 from django.db import models
 from django.contrib.auth.models import AbstractUser
 from decimal import Decimal
+from rest_framework import permissions
 
 class TimeStampedModel(models.Model):
     created_at = models.DateTimeField(auto_now_add=True)

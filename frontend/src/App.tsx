@@ -23,6 +23,7 @@ import Dashboard from './pages/Dashboard';
 import RestaurantDashboard from './pages/RestaurantDashboard';
 import UserProfile from './pages/UserProfile';
 
+
 const muiTheme = createTheme({
   palette: {
     primary: { main: '#FF6B35' },

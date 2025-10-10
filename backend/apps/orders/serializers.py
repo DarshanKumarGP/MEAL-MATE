@@ -1,5 +1,6 @@
 from rest_framework import serializers
 from .models import Cart, CartItem, Order, OrderItem, OrderStatusHistory, Review
+from .models import Review
 
 class CartSerializer(serializers.ModelSerializer):
     class Meta:
@@ -51,3 +52,22 @@ class ReviewSerializer(serializers.ModelSerializer):
     class Meta:
         model = Review
         fields = '__all__'
+
+class ReviewSerializer(serializers.ModelSerializer):
+    customer = serializers.SerializerMethodField()
+    
+    class Meta:
+        model = Review
+        fields = ['id', 'customer', 'rating', 'comment', 'created_at', 'updated_at']
+        read_only_fields = ['customer']
+    
+    def get_customer(self, obj):
+        return {
+            'first_name': obj.customer.first_name,
+            'last_name': obj.customer.last_name,
+            'email': obj.customer.email[:3] + '***@' + obj.customer.email.split('@')[1]  # Mask email
+        }
+    
+    def create(self, validated_data):
+        validated_data['customer'] = self.context['request'].user
+        return super().create(validated_data)

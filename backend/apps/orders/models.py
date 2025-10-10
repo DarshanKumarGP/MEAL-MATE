@@ -3,7 +3,8 @@ from django.core.validators import MinValueValidator, MaxValueValidator
 from apps.core.models import User, TimeStampedModel
 from apps.restaurants.models import Restaurant, MenuItem
 from decimal import Decimal
-
+from django.contrib.auth import get_user_model
+from apps.restaurants.models import Restaurant
 
 class Cart(TimeStampedModel):
     user = models.ForeignKey(User, on_delete=models.CASCADE, related_name='cart', null=True, blank=True)
@@ -127,3 +128,30 @@ class Review(TimeStampedModel):
     def save(self, *args, **kwargs):
         super().save(*args, **kwargs)
         self.restaurant.update_rating()
+
+
+User = get_user_model()
+
+class Review(models.Model):
+    RATING_CHOICES = [
+        (1, '1 Star'),
+        (2, '2 Stars'),
+        (3, '3 Stars'),
+        (4, '4 Stars'),
+        (5, '5 Stars'),
+    ]
+    
+    customer = models.ForeignKey(User, on_delete=models.CASCADE, related_name='reviews')
+    restaurant = models.ForeignKey(Restaurant, on_delete=models.CASCADE, related_name='reviews')
+    order = models.ForeignKey('Order', on_delete=models.CASCADE, related_name='reviews', null=True, blank=True)
+    rating = models.IntegerField(choices=RATING_CHOICES)
+    comment = models.TextField()
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+    
+    class Meta:
+        unique_together = ['customer', 'restaurant', 'order']  # One review per customer per order
+        ordering = ['-created_at']
+    
+    def __str__(self):
+        return f"{self.customer.email} - {self.restaurant.name} - {self.rating} stars"
