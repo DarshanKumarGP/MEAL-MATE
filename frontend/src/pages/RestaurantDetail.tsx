@@ -13,6 +13,13 @@ interface MenuItem {
   category: string;
   is_available: boolean;
   image?: string;
+  restaurant: number;
+}
+
+interface MenuCategory {
+  id: number;
+  name: string;
+  restaurant: number;
 }
 
 interface Restaurant {
@@ -33,6 +40,7 @@ const RestaurantDetail: React.FC = () => {
   const navigate = useNavigate();
   const [restaurant, setRestaurant] = useState<Restaurant | null>(null);
   const [menuItems, setMenuItems] = useState<MenuItem[]>([]);
+  const [menuCategories, setMenuCategories] = useState<MenuCategory[]>([]);
   const [loading, setLoading] = useState(true);
   const [selectedCategory, setSelectedCategory] = useState('All');
   const [cartItems, setCartItems] = useState<{ [key: number]: number }>({});
@@ -41,6 +49,7 @@ const RestaurantDetail: React.FC = () => {
     if (id) {
       fetchRestaurant();
       fetchMenuItems();
+      fetchMenuCategories();
     }
   }, [id]);
 
@@ -53,12 +62,73 @@ const RestaurantDetail: React.FC = () => {
     }
   };
 
+  const fetchMenuCategories = async () => {
+    try {
+      // Try to get categories for this specific restaurant
+      let response;
+      try {
+        response = await api.get(`/restaurants/menu-categories/?restaurant=${id}`);
+      } catch (error) {
+        // Fallback: get all categories and filter
+        const allCategoriesResponse = await api.get('/restaurants/menu-categories/');
+        const allCategories = allCategoriesResponse.data.results || allCategoriesResponse.data || [];
+        const restaurantCategories = allCategories.filter((category: MenuCategory) => 
+          category.restaurant === parseInt(id!)
+        );
+        response = { data: { results: restaurantCategories } };
+      }
+      
+      const categories = response.data.results || response.data || [];
+      setMenuCategories(categories);
+    } catch (error) {
+      console.error('Failed to fetch menu categories:', error);
+      setMenuCategories([]);
+    }
+  };
+
   const fetchMenuItems = async () => {
     try {
-      const response = await api.get(`/restaurants/menu-items/?restaurant=${id}`);
-      setMenuItems(response.data.results || []);
+      // Try multiple API endpoint variations to ensure we get the right data
+      let response;
+      
+      // First, try the most specific endpoint
+      try {
+        response = await api.get(`/restaurants/restaurants/${id}/menu-items/`);
+      } catch (error) {
+        // If that fails, try with restaurant filter parameter
+        try {
+          response = await api.get(`/restaurants/menu-items/?restaurant_id=${id}`);
+        } catch (error2) {
+          // If that fails, try with restaurant parameter
+          try {
+            response = await api.get(`/restaurants/menu-items/?restaurant=${id}`);
+          } catch (error3) {
+            // Last resort: get all items and filter client-side
+            const allItemsResponse = await api.get('/restaurants/menu-items/');
+            const allItems = allItemsResponse.data.results || allItemsResponse.data || [];
+            
+            // Filter items for this specific restaurant
+            const restaurantItems = allItems.filter((item: MenuItem) => 
+              item.restaurant === parseInt(id!)
+            );
+            
+            response = { data: { results: restaurantItems } };
+          }
+        }
+      }
+
+      const items = response.data.results || response.data || [];
+      
+      // Double-check: Filter items to ensure they belong to this restaurant
+      const filteredItems = items.filter((item: MenuItem) => 
+        !item.restaurant || item.restaurant === parseInt(id!) || item.restaurant.toString() === id
+      );
+      
+      setMenuItems(filteredItems);
+      
     } catch (error) {
       console.error('Failed to fetch menu items:', error);
+      setMenuItems([]); // Set empty array if all methods fail
     } finally {
       setLoading(false);
     }
@@ -84,10 +154,21 @@ const RestaurantDetail: React.FC = () => {
     }
   };
 
-  const categories = ['All', ...Array.from(new Set(menuItems.map(item => item.category)))];
+  // Get category name from ID by matching with menuCategories
+  const getCategoryName = (categoryId: string): string => {
+    const category = menuCategories.find(cat => cat.id.toString() === categoryId);
+    return category ? category.name : categoryId;
+  };
+
+  // Get unique categories from the filtered menu items and convert IDs to names
+  const uniqueCategoryIds = Array.from(new Set(menuItems.map(item => item.category)));
+  const categoryNames = uniqueCategoryIds.map(id => getCategoryName(id));
+  const categories = ['All', ...categoryNames];
+  
+  // Filter items by category (these are already filtered by restaurant)
   const filteredItems = selectedCategory === 'All' 
     ? menuItems 
-    : menuItems.filter(item => item.category === selectedCategory);
+    : menuItems.filter(item => getCategoryName(item.category) === selectedCategory);
 
   if (loading) {
     return (
@@ -320,9 +401,9 @@ const RestaurantDetail: React.FC = () => {
         {/* Menu Items */}
         {filteredItems.length === 0 ? (
           <Card style={{ textAlign: 'center', padding: theme.spacing.xxl }}>
-            <h3>No menu items available</h3>
+            <h3>No menu items available for this restaurant</h3>
             <p style={{ color: theme.colors.gray[600] }}>
-              Check back later or try a different category
+              This restaurant hasn't added any menu items yet, or they might be temporarily unavailable.
             </p>
           </Card>
         ) : (

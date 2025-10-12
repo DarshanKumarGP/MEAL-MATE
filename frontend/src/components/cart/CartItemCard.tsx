@@ -1,4 +1,5 @@
 import React from 'react';
+import api from '../../services/api';
 
 interface CartItemCardProps {
   id: number;
@@ -6,6 +7,8 @@ interface CartItemCardProps {
   unitPrice: number;
   quantity: number;
   specialInstructions?: string;
+  image?: string;
+  description?: string;
   onIncrease: () => void;
   onDecrease: () => void;
   onRemove: () => void;
@@ -17,6 +20,8 @@ const CartItemCard: React.FC<CartItemCardProps> = ({
   unitPrice,
   quantity,
   specialInstructions,
+  image,
+  description,
   onIncrease,
   onDecrease,
   onRemove,
@@ -58,10 +63,30 @@ const CartItemCard: React.FC<CartItemCardProps> = ({
           boxShadow: '0 4px 16px rgba(255, 107, 53, 0.1)',
           display: 'flex',
           alignItems: 'center',
-          justifyContent: 'center',
-          fontSize: '48px'
+          justifyContent: 'center'
         }}>
-          🍕
+          {image ? (
+            <img
+              src={
+                image.startsWith('http')
+                  ? image
+                  : `${api.defaults.baseURL}${image}`
+              }
+              alt={name}
+              style={{
+                width: '100%',
+                height: '100%',
+                objectFit: 'cover',
+              }}
+              onError={(e) => {
+                // Fallback to emoji if image fails to load
+                e.currentTarget.style.display = 'none';
+                e.currentTarget.parentElement!.innerHTML = '<div style="font-size: 48px">🍽️</div>';
+              }}
+            />
+          ) : (
+            <div style={{ fontSize: '48px' }}>🍽️</div>
+          )}
         </div>
 
         {/* Item Details */}
@@ -112,7 +137,7 @@ const CartItemCard: React.FC<CartItemCardProps> = ({
             margin: '8px 0 12px 0',
             lineHeight: 1.5
           }}>
-            Delicious and freshly prepared with premium ingredients. Perfect for any meal!
+            {description || 'Delicious and freshly prepared with premium ingredients. Perfect for any meal!'}
           </p>
 
           <div style={{

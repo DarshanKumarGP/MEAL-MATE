@@ -5,10 +5,19 @@ import { useAuth } from '../context/AuthContext';
 import { useToast } from '../context/ToastContext';
 import CartItemCard from '../components/cart/CartItemCard';
 
+interface MenuItem {
+  id: number;
+  name: string;
+  image?: string;
+  description?: string;
+}
+
 interface CartItemData {
   id: number;
   subtotal: number;
   menu_item_name: string;
+  menu_item_image?: string;
+  menu_item_description?: string;
   created_at: string;
   updated_at: string;
   quantity: number;
@@ -23,23 +32,57 @@ const Cart: React.FC = () => {
   const navigate = useNavigate();
   const { addToast } = useToast();
   const [cartItems, setCartItems] = useState<CartItemData[]>([]);
+  const [menuItems, setMenuItems] = useState<{ [key: number]: MenuItem }>({});
   const [loading, setLoading] = useState(true);
   const [updating, setUpdating] = useState<number | null>(null);
   const [promoCode, setPromoCode] = useState('');
   const [discount, setDiscount] = useState(0);
   const [showPromo, setShowPromo] = useState(false);
 
-  const fetchCartItems = useCallback(async () => {
+  const fetchMenuItemDetails = async (menuItemIds: number[]) => {
     try {
-      const response = await api.get('/orders/cart-items/');
-      setCartItems(response.data.results || response.data || []);
+      const menuItemsData: { [key: number]: MenuItem } = {};
+      
+      // Fetch details for each menu item
+      await Promise.all(
+        menuItemIds.map(async (itemId) => {
+          try {
+            const response = await api.get(`/restaurants/menu-items/${itemId}/`);
+            menuItemsData[itemId] = response.data;
+          } catch (error) {
+            console.error(`Failed to fetch menu item ${itemId}:`, error);
+          }
+        })
+      );
+      
+      setMenuItems(menuItemsData);
     } catch (error) {
-      console.error('Failed to fetch cart items:', error);
-      addToast('Failed to load cart items', 'error');
-    } finally {
-      setLoading(false);
+      console.error('Failed to fetch menu item details:', error);
     }
-  }, [addToast]);
+  };
+
+    const fetchCartItems = useCallback(async () => {
+  try {
+    const response = await api.get('/orders/cart-items/');
+    const items = response.data.results || response.data || [];
+    setCartItems(items);
+    
+    // Extract unique menu item IDs with proper typing
+    const allMenuItemIds: number[] = items.map((item: CartItemData) => item.menu_item);
+    const uniqueMenuItemIds = new Set<number>(allMenuItemIds);
+    const menuItemIds: number[] = Array.from(uniqueMenuItemIds);
+    
+    if (menuItemIds.length > 0) {
+      await fetchMenuItemDetails(menuItemIds);
+    }
+  } catch (error) {
+    console.error('Failed to fetch cart items:', error);
+    addToast('Failed to load cart items', 'error');
+  } finally {
+    setLoading(false);
+  }
+}, [addToast]);
+
 
   useEffect(() => {
     if (user) {
@@ -310,20 +353,25 @@ const Cart: React.FC = () => {
 
             {/* Cart Items */}
             <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
-              {cartItems.map(item => (
-                <CartItemCard
-                  key={item.id}
-                  id={item.id}
-                  name={item.menu_item_name}
-                  unitPrice={parseFloat(item.unit_price)}
-                  quantity={item.quantity}
-                  specialInstructions={item.special_instructions}
-                  updating={updating === item.id}
-                  onIncrease={() => updateQuantity(item.id, item.quantity + 1)}
-                  onDecrease={() => updateQuantity(item.id, item.quantity - 1)}
-                  onRemove={() => removeItem(item.id)}
-                />
-              ))}
+              {cartItems.map(item => {
+                const menuItem = menuItems[item.menu_item];
+                return (
+                  <CartItemCard
+                    key={item.id}
+                    id={item.id}
+                    name={item.menu_item_name}
+                    unitPrice={parseFloat(item.unit_price)}
+                    quantity={item.quantity}
+                    specialInstructions={item.special_instructions}
+                    image={menuItem?.image}
+                    description={menuItem?.description}
+                    updating={updating === item.id}
+                    onIncrease={() => updateQuantity(item.id, item.quantity + 1)}
+                    onDecrease={() => updateQuantity(item.id, item.quantity - 1)}
+                    onRemove={() => removeItem(item.id)}
+                  />
+                );
+              })}
             </div>
           </div>
 
