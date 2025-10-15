@@ -28,10 +28,7 @@ COPY --from=frontend /app/frontend/build /app/backend/static/build
 COPY --from=frontend /app/frontend/build/index.html /app/backend/templates/index.html
 
 WORKDIR /app/backend
-ENV PORT=${PORT:-8000} \
-    DEBUG=False \
-    ALLOWED_HOSTS=.railway.app
+ENV DEBUG=False ALLOWED_HOSTS=.railway.app
 
+# Use fixed port instead of variable
 CMD ["gunicorn", "mealmate_project.wsgi:application", "--bind", "0.0.0.0:8000", "--workers", "3"]
-
-
