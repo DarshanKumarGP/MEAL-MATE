@@ -32,5 +32,6 @@ ENV PORT=${PORT:-8000} \
     DEBUG=False \
     ALLOWED_HOSTS=.railway.app
 
+RUN python manage.py migrate && python manage.py collectstatic --noinput
 CMD ["gunicorn", "mealmate_project.wsgi:application", "--bind", "0.0.0.0:${PORT}", "--workers", "3"]
 
