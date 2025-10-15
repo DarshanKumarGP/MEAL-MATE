@@ -16,32 +16,19 @@ export const NotificationProvider: React.FC<{ children: ReactNode }> = ({ childr
   const [permission, setPermission] = useState<NotificationPermission>('default');
   const { user } = useAuth();
   const { addToast } = useToast();
-  const isSupported = 'Notification' in window && 'serviceWorker' in navigator;
+  const isSupported = 'Notification' in window;
 
   useEffect(() => {
     if (isSupported) {
       setPermission(Notification.permission);
       
-      // Register service worker
-      registerServiceWorker();
+      // REMOVED: Service worker registration - no more errors!
       
-      // Subscribe to order updates if user is logged in
       if (user && permission === 'granted') {
         subscribeToUpdates();
       }
     }
-  }, [user, permission]);
-
-  const registerServiceWorker = async () => {
-  try {
-    if ('serviceWorker' in navigator) {
-      const registration = await navigator.serviceWorker.register('/sw.js');
-      console.log('SW registered successfully:', registration);
-    }
-  } catch (error) {
-    console.error('SW registration failed:', error);
-  }
-};
+  }, [user, permission, isSupported]);
 
   const requestPermission = async () => {
     if (!isSupported) {
@@ -62,8 +49,6 @@ export const NotificationProvider: React.FC<{ children: ReactNode }> = ({ childr
 
   const subscribeToUpdates = async () => {
     try {
-      // In a real app, you'd register for push notifications here
-      // For demo, we'll simulate with polling
       pollForUpdates();
     } catch (error) {
       console.error('Failed to subscribe to notifications:', error);
@@ -71,14 +56,11 @@ export const NotificationProvider: React.FC<{ children: ReactNode }> = ({ childr
   };
 
   const pollForUpdates = () => {
-    // Simulate checking for order updates every 30 seconds
     const interval = setInterval(async () => {
       try {
         const { data } = await api.get('/orders/orders/?status=PREPARING,READY,OUT_FOR_DELIVERY');
         const activeOrders = data.results || [];
         
-        // This would normally be handled by push notifications
-        // For demo, we check if any orders have status changes
         activeOrders.forEach((order: any) => {
           if (order.status === 'READY') {
             sendNotification(
@@ -103,29 +85,26 @@ export const NotificationProvider: React.FC<{ children: ReactNode }> = ({ childr
   };
 
   const sendNotification = (title: string, body: string, data?: any) => {
-  if (!isSupported || permission !== 'granted') return;
+    if (!isSupported || permission !== 'granted') return;
 
-  const notification = new Notification(title, {
-    body,
-    icon: '/logo192.png',
-    badge: '/logo192.png',
-    data,
-    requireInteraction: true
-    // Remove 'actions' - not supported in basic Notification API
-  });
+    const notification = new Notification(title, {
+      body,
+      icon: '/logo192.png',
+      badge: '/logo192.png',
+      data,
+      requireInteraction: true
+    });
 
-  notification.onclick = () => {
-    window.focus();
-    if (data?.orderId) {
-      window.location.href = `/orders/${data.orderId}`;
-    }
-    notification.close();
+    notification.onclick = () => {
+      window.focus();
+      if (data?.orderId) {
+        window.location.href = `/orders/${data.orderId}`;
+      }
+      notification.close();
+    };
+
+    setTimeout(() => notification.close(), 10000);
   };
-
-  // Auto close after 10 seconds
-  setTimeout(() => notification.close(), 10000);
-};
-
 
   return (
     <NotificationContext.Provider value={{

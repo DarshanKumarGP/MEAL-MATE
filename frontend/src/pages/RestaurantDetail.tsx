@@ -28,8 +28,8 @@ interface Restaurant {
   description: string;
   cuisine_type: string;
   phone: string;
-  image?: string; // cover image
-  logo?: string; // new logo field
+  image?: string;
+  logo?: string;
   rating?: number;
   delivery_time?: string;
   delivery_fee?: number;
@@ -48,8 +48,8 @@ const RestaurantDetail: React.FC = () => {
   useEffect(() => {
     if (id) {
       fetchRestaurant();
-      fetchMenuItems();
       fetchMenuCategories();
+      fetchMenuItems();
     }
   }, [id]);
 
@@ -64,22 +64,24 @@ const RestaurantDetail: React.FC = () => {
 
   const fetchMenuCategories = async () => {
     try {
-      // Try to get categories for this specific restaurant
       let response;
       try {
         response = await api.get(`/restaurants/menu-categories/?restaurant=${id}`);
       } catch (error) {
-        // Fallback: get all categories and filter
         const allCategoriesResponse = await api.get('/restaurants/menu-categories/');
         const allCategories = allCategoriesResponse.data.results || allCategoriesResponse.data || [];
-        const restaurantCategories = allCategories.filter((category: MenuCategory) => 
+        // CRITICAL FIX: Ensure allCategories is always an array
+        const categoriesArray = Array.isArray(allCategories) ? allCategories : [];
+        const restaurantCategories = categoriesArray.filter((category: MenuCategory) => 
           category.restaurant === parseInt(id!)
         );
         response = { data: { results: restaurantCategories } };
       }
       
       const categories = response.data.results || response.data || [];
-      setMenuCategories(categories);
+      // CRITICAL FIX: Ensure categories is always an array
+      const categoriesArray = Array.isArray(categories) ? categories : [];
+      setMenuCategories(categoriesArray);
     } catch (error) {
       console.error('Failed to fetch menu categories:', error);
       setMenuCategories([]);
@@ -88,39 +90,36 @@ const RestaurantDetail: React.FC = () => {
 
   const fetchMenuItems = async () => {
     try {
-      // Try multiple API endpoint variations to ensure we get the right data
       let response;
       
-      // First, try the most specific endpoint
+      // Try multiple endpoints with comprehensive error handling
       try {
         response = await api.get(`/restaurants/restaurants/${id}/menu-items/`);
       } catch (error) {
-        // If that fails, try with restaurant filter parameter
         try {
           response = await api.get(`/restaurants/menu-items/?restaurant_id=${id}`);
         } catch (error2) {
-          // If that fails, try with restaurant parameter
           try {
             response = await api.get(`/restaurants/menu-items/?restaurant=${id}`);
           } catch (error3) {
-            // Last resort: get all items and filter client-side
             const allItemsResponse = await api.get('/restaurants/menu-items/');
             const allItems = allItemsResponse.data.results || allItemsResponse.data || [];
-            
-            // Filter items for this specific restaurant
-            const restaurantItems = allItems.filter((item: MenuItem) => 
+            // CRITICAL FIX: Ensure allItems is always an array
+            const itemsArray = Array.isArray(allItems) ? allItems : [];
+            const restaurantItems = itemsArray.filter((item: MenuItem) => 
               item.restaurant === parseInt(id!)
             );
-            
             response = { data: { results: restaurantItems } };
           }
         }
       }
 
-      const items = response.data.results || response.data || [];
+      // CRITICAL FIX: Multiple safety checks to ensure array
+      const rawItems = response.data.results || response.data || [];
+      const itemsArray = Array.isArray(rawItems) ? rawItems : [];
       
-      // Double-check: Filter items to ensure they belong to this restaurant
-      const filteredItems = items.filter((item: MenuItem) => 
+      // Filter items for this restaurant
+      const filteredItems = itemsArray.filter((item: MenuItem) => 
         !item.restaurant || item.restaurant === parseInt(id!) || item.restaurant.toString() === id
       );
       
@@ -128,7 +127,7 @@ const RestaurantDetail: React.FC = () => {
       
     } catch (error) {
       console.error('Failed to fetch menu items:', error);
-      setMenuItems([]); // Set empty array if all methods fail
+      setMenuItems([]);
     } finally {
       setLoading(false);
     }
@@ -154,18 +153,15 @@ const RestaurantDetail: React.FC = () => {
     }
   };
 
-  // Get category name from ID by matching with menuCategories
   const getCategoryName = (categoryId: string): string => {
     const category = menuCategories.find(cat => cat.id.toString() === categoryId);
     return category ? category.name : categoryId;
   };
 
-  // Get unique categories from the filtered menu items and convert IDs to names
   const uniqueCategoryIds = Array.from(new Set(menuItems.map(item => item.category)));
   const categoryNames = uniqueCategoryIds.map(id => getCategoryName(id));
   const categories = ['All', ...categoryNames];
   
-  // Filter items by category (these are already filtered by restaurant)
   const filteredItems = selectedCategory === 'All' 
     ? menuItems 
     : menuItems.filter(item => getCategoryName(item.category) === selectedCategory);
@@ -224,7 +220,6 @@ const RestaurantDetail: React.FC = () => {
             gap: theme.spacing.md
           }}
         >
-          {/* Left Section: Back + Logo + Info */}
           <div style={{ display: 'flex', alignItems: 'center', gap: theme.spacing.lg }}>
             <Button
               variant="ghost"
@@ -244,7 +239,6 @@ const RestaurantDetail: React.FC = () => {
                 gap: theme.spacing.md,
               }}
             >
-              {/* Logo */}
               <div
                 style={{
                   width: '100px',
@@ -284,7 +278,6 @@ const RestaurantDetail: React.FC = () => {
                 )}
               </div>
 
-              {/* Info */}
               <div>
                 <h1
                   style={{
@@ -343,7 +336,6 @@ const RestaurantDetail: React.FC = () => {
             </div>
           </div>
 
-          {/* Right Section: Cart */}
           <div style={{ textAlign: 'center' }}>
             <Button
               onClick={() => navigate('/cart')}
@@ -375,7 +367,6 @@ const RestaurantDetail: React.FC = () => {
           padding: theme.spacing.lg,
         }}
       >
-        {/* Category Filter */}
         <div
           style={{
             display: 'flex',
@@ -398,7 +389,6 @@ const RestaurantDetail: React.FC = () => {
           ))}
         </div>
 
-        {/* Menu Items */}
         {filteredItems.length === 0 ? (
           <Card style={{ textAlign: 'center', padding: theme.spacing.xxl }}>
             <h3>No menu items available for this restaurant</h3>
