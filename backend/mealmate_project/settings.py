@@ -143,9 +143,8 @@ USE_TZ = True
 STATIC_URL = '/static/'
 STATIC_ROOT = BASE_DIR / 'staticfiles'
 STATICFILES_DIRS = [
-    BASE_DIR.parent / 'frontend' / 'build' / 'static',  # React static files (CSS, JS)
+    BASE_DIR / 'static' / 'build' / 'static',  # React build static files (JS, CSS)
 ]
-
 
 # Whitenoise configuration for serving static files
 STATICFILES_STORAGE = 'whitenoise.storage.CompressedManifestStaticFilesStorage'
@@ -155,8 +154,9 @@ STATICFILES_STORAGE = 'whitenoise.storage.CompressedManifestStaticFilesStorage'
 CORS_ALLOWED_ORIGINS = [
     "http://localhost:3000",      # React dev server
     "http://127.0.0.1:3000",     # React dev server
-    "http://localhost:8000",      # Django serving React
-    "http://127.0.0.1:8000",     # Django serving React
+    "http://localhost:8000",      # Django serving React locally
+    "http://127.0.0.1:8000",     # Django serving React locally
+    "https://meal-mate-production.up.railway.app",  # ✅ ADD THIS - Production URL
 ]
 
 # Additional CORS settings for production-like setup
